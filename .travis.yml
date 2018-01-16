@@ -1,0 +1,16 @@
+language: python
+cache:
+  directories:
+    - $HOME/.cache/pip
+sudo: false
+python:
+  - "3.6"
+
+install:
+  - make setup
+  - pip install coveralls
+
+script: make test
+
+after_success:
+  coveralls

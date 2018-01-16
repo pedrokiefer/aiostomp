@@ -1,0 +1,8 @@
+[run]
+omit =
+    test_*.py
+    aiostomp/__init__.py
+    aiostomp/test_utils.py
+branch = True
+source =
+    aiostomp
