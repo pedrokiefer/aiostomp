@@ -2,7 +2,7 @@
 [![Coverage Status](https://coveralls.io/repos/github/pedrokiefer/aiostomp/badge.svg?branch=master)](https://coveralls.io/github/pedrokiefer/aiostomp?branch=master)
 [![PyPI version](https://badge.fury.io/py/aiostomp.svg)](https://badge.fury.io/py/aiostomp)
 
-# Torstomp
+# Aiostomp
 Simple asyncio stomp 1.1 client for python 3.6.
 
 Heavely inspired on [torstomp](https://github.com/wpjunior/torstomp).
