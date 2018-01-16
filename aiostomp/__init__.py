@@ -2,6 +2,6 @@
 __version__ = '1.0.0'
 
 try:
-    from .aiostomp import AioStomp
+    from .aiostomp import AioStomp  # noqa
 except ImportError:
     pass
