@@ -5,7 +5,7 @@ from aiostomp.test_utils import AsyncTestCase, unittest_run_loop
 
 from aiostomp.aiostomp import AioStomp, StompReader, StompProtocol
 from aiostomp.subscription import Subscription
-from aiostomp.errors import StompError
+from aiostomp.errors import StompError, StompDisconnectedError
 from aiostomp.frame import Frame
 
 from asynctest import CoroutineMock, Mock, patch
@@ -44,6 +44,14 @@ class TestStompReader(AsyncTestCase):
         frame_handler.connection_lost.assert_called_with(exc)
 
     @unittest_run_loop
+    async def test_send_frame_can_raise_error(self):
+        stomp = StompReader(None, self.loop)
+        stomp._transport = None
+
+        with self.assertRaises(StompDisconnectedError):
+            stomp.send_frame('SUBSCRIBE', {'ack': 'auto'}, 'ç')
+
+    @unittest_run_loop
     async def test_can_send_frame(self):
         stomp = StompReader(None, self.loop)
         stomp._transport = Mock()
@@ -58,7 +66,10 @@ class TestStompReader(AsyncTestCase):
 
     @unittest_run_loop
     async def test_can_connect(self):
-        stomp = StompReader(None, self.loop)
+        stomp = StompReader(
+            None,
+            self.loop,
+            heartbeat={'enabled': True, 'cx': 1000, 'cy': 1000})
         stomp._transport = Mock()
 
         stomp.connect()
@@ -98,12 +109,34 @@ class TestStompReader(AsyncTestCase):
         heartbeater_mock = heartbeater_klass_mock.return_value
         heartbeater_mock.start = CoroutineMock()
 
-        stomp = StompReader(None, self.loop)
+        stomp = StompReader(
+            None,
+            self.loop,
+            heartbeat={'enabled': True, 'cx': 1000, 'cy': 1000})
         stomp._transport = Mock()
         await stomp._handle_connect(frame)
 
         heartbeater_klass_mock.assert_called_with(stomp._transport, 1000)
         heartbeater_mock.start.assert_called_once()
+
+    @patch('aiostomp.aiostomp.StompHeartbeater')
+    @unittest_run_loop
+    async def test_can_handle_connected_frame_with_heartbeat_disabled(self, heartbeater_klass_mock):
+        frame = Frame('CONNECTED', {
+            'heart-beat': '1000,1000',
+        }, '{}')
+
+        heartbeater_mock = heartbeater_klass_mock.return_value
+        heartbeater_mock.start = CoroutineMock()
+
+        stomp = StompReader(
+            None,
+            self.loop,
+            heartbeat={'enabled': False, 'cx': 0, 'cy': 0})
+        stomp._transport = Mock()
+        await stomp._handle_connect(frame)
+
+        heartbeater_klass_mock.assert_not_called
 
     @patch('aiostomp.aiostomp.StompReader._handle_message')
     @unittest_run_loop

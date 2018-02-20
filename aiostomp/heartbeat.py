@@ -2,7 +2,6 @@ import asyncio
 import logging
 
 from contextlib import suppress
-from time import monotonic
 
 logger = logging.getLogger()
 
@@ -45,12 +44,4 @@ class StompHeartbeater:
             await asyncio.sleep(self.interval)
 
     async def send(self):
-        logger.debug('send heartbeat')
         self._transport.write(self.HEART_BEAT)
-
-    def update(self):
-        if self.received_heartbeat is None:
-            return
-        now = monotonic()
-        if now > self.received_heartbeat:
-            self.received_heartbeat = now

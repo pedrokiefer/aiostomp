@@ -8,7 +8,7 @@ from collections import deque
 from async_timeout import timeout
 
 from aiostomp.protocol import StompProtocol as sp
-from aiostomp.errors import StompError
+from aiostomp.errors import StompError, StompDisconnectedError
 from aiostomp.subscription import Subscription
 from aiostomp.heartbeat import StompHeartbeater
 
@@ -20,8 +20,16 @@ class AioStomp:
 
     def __init__(self, host, port,
                  reconnect_max_attempts=-1, reconnect_timeout=1000,
+                 heartbeat=True, heartbeat_interval_cx=1000, heartbeat_interval_cy=1000,
                  error_handler=None):
-        self._protocol = StompProtocol(self, host, port)
+
+        self._heartbeat = {
+            'enabled': heartbeat,
+            'cx': heartbeat_interval_cx,
+            'cy': heartbeat_interval_cy
+        }
+
+        self._protocol = StompProtocol(self, host, port, heartbeat=self._heartbeat)
         self._last_subscribe_id = 0
         self._subscriptions = {}
 
@@ -59,6 +67,7 @@ class AioStomp:
             logger.error('All connections attempts failed.')
 
     def connection_lost(self, exc):
+        self._connected = False
         asyncio.ensure_future(self.reconnect())
 
     def subscribe(self, destination, ack='auto', extra_headers={}, handler=None):
@@ -109,8 +118,8 @@ class AioStomp:
 
 class StompReader(asyncio.Protocol):
 
-    def __init__(self, frame_handler, loop=None):
-        self.heartbeat = 1000
+    def __init__(self, frame_handler, loop=None, heartbeat={}):
+        self.heartbeat = heartbeat
         self.heartbeater = None
 
         self._loop = loop
@@ -123,7 +132,12 @@ class StompReader(asyncio.Protocol):
 
         self._protocol = sp()
         self._connect_headers = {}
-        self._connect_headers['heart-beat'] = '1000,1000'
+
+        if self.heartbeat.get('enabled'):
+            self._connect_headers['heart-beat'] = '{},{}'.format(
+                self.heartbeat.get('cx', 0),
+                self.heartbeat.get('cy', 0))
+
         self._connect_headers['accept-version'] = '1.1'
 
     def close(self):
@@ -135,6 +149,10 @@ class StompReader(asyncio.Protocol):
 
     def send_frame(self, command, headers={}, body=''):
         buf = self._protocol.build_frame(command, headers, body)
+
+        if not self._transport:
+            raise StompDisconnectedError()
+
         return self._transport.write(buf)
 
     def ack(self, frame):
@@ -181,11 +199,11 @@ class StompReader(asyncio.Protocol):
 
     async def _handle_connect(self, frame):
         heartbeat = frame.headers.get('heart-beat')
-        if heartbeat:
+        if heartbeat and self.heartbeat.get('enabled'):
             sx, sy = (int(x) for x in heartbeat.split(','))
 
             if sy:
-                interval = max(self.heartbeat, sy)
+                interval = max(self.heartbeat.get('cx', 0), sy)
                 self.heartbeater = StompHeartbeater(self._transport, interval)
                 await self.heartbeater.start()
 
@@ -266,7 +284,7 @@ class StompReader(asyncio.Protocol):
 
 class StompProtocol(object):
 
-    def __init__(self, handler, host, port, loop=None):
+    def __init__(self, handler, host, port, loop=None, heartbeat={}):
 
         self.host = host
         self.port = port
@@ -275,7 +293,7 @@ class StompProtocol(object):
             loop = asyncio.get_event_loop()
 
         self._loop = loop
-        self._factory = functools.partial(StompReader, handler, loop=loop)
+        self._factory = functools.partial(StompReader, handler, loop=loop, heartbeat=heartbeat)
 
     async def connect(self):
         trans, proto = await self._loop.create_connection(

@@ -42,6 +42,8 @@ class TestStompHeartbeater(AsyncTestCase):
         await asyncio.sleep(0.101)
         self.assertEqual(len(self.transport.write.call_args_list), 2)
 
+        await self.heartbeater.stop()
+
     @unittest_run_loop
     async def test_can_shutdown_heartbeater(self):
 
@@ -54,6 +56,8 @@ class TestStompHeartbeater(AsyncTestCase):
 
         await asyncio.sleep(0.101)
         self.assertEqual(len(self.transport.write.call_args_list), 1)
+
+        self.heartbeater.shutdown()
 
     @patch('aiostomp.heartbeat.StompHeartbeater.stop')
     @unittest_run_loop
