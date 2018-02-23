@@ -45,18 +45,21 @@ class AioStomp:
         logger.debug('connect')
         try:
             await self._protocol.connect()
-        except (asyncio.TimeoutError, ConnectionRefusedError, OSError) as exp:
+        except (asyncio.TimeoutError, ConnectionRefusedError, OSError, asyncio.CancelledError) as exp:
             logger.debug(exp)
             asyncio.ensure_future(self.reconnect())
             return
 
         self._connected = True
+        self._reconnect_attempts = 0
         for subscription in self._subscriptions.values():
             self._protocol.subscribe(subscription)
 
     async def reconnect(self):
         if self._reconnect_max_attempts == -1 or \
                 self._reconnect_attempts < self._reconnect_max_attempts:
+
+            await asyncio.sleep(1.0 * self._reconnect_attempts)
 
             self._reconnect_attempts += 1
 
@@ -276,8 +279,7 @@ class StompReader(asyncio.Protocol):
             elif frame.command == 'ERROR':
                 await self._handle_error(frame)
             elif frame.command == 'HEARTBEAT':
-                if self.heartbeater:
-                    self.heartbeater.update()
+                pass
             else:
                 await self._handle_exception(frame)
 
