@@ -20,7 +20,8 @@ setup(
     platforms=['any'],
     install_requires=[
         'six',
-        'async-timeout'
+        'async-timeout',
+        'bumpversion'
     ],
     extras_require={
         'tests': [

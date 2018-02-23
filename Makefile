@@ -1,4 +1,5 @@
 .PHONY: setup clean test test_unit flake8 autopep8 upload
+BUMP := 'patch'
 
 setup:
 	@pip install -Ue .\[tests\]
@@ -30,6 +31,18 @@ flake8 static:
 autopep8:
 	autopep8 -r -i aiostomp/
 	autopep8 -r -i tests/
+
+patch:
+	@$(eval BUMP := 'patch')
+
+minor:
+	@$(eval BUMP := 'minor')
+
+major:
+	@$(eval BUMP := 'major')
+
+bump:
+	@bumpversion ${BUMP}
 
 upload:
 	python ./setup.py sdist upload -r pypi
