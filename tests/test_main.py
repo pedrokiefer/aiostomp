@@ -315,12 +315,9 @@ class TestStompReader(AsyncTestCase):
     @unittest_run_loop
     async def test_can_process_heartbeat(self):
         stomp = StompReader(None, self.loop)
-        stomp.heartbeater = Mock()
-
         stomp.data_received(b'\n')
 
         await asyncio.sleep(0.001)
-        stomp.heartbeater.update.assert_called_once()
 
 
 class TestAioStomp(AsyncTestCase):
