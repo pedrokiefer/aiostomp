@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 class AioStomp:
 
     def __init__(self, host, port,
+                 ssl_context=None,
                  reconnect_max_attempts=-1, reconnect_timeout=1000,
                  heartbeat=True, heartbeat_interval_cx=1000, heartbeat_interval_cy=1000,
                  error_handler=None):
@@ -29,7 +30,9 @@ class AioStomp:
             'cy': heartbeat_interval_cy
         }
 
-        self._protocol = StompProtocol(self, host, port, heartbeat=self._heartbeat)
+        self._protocol = StompProtocol(
+            self, host, port, heartbeat=self._heartbeat,
+            ssl_context=ssl_context)
         self._last_subscribe_id = 0
         self._subscriptions = {}
 
@@ -286,20 +289,24 @@ class StompReader(asyncio.Protocol):
 
 class StompProtocol(object):
 
-    def __init__(self, handler, host, port, loop=None, heartbeat={}):
+    def __init__(self, handler, host, port,
+                 loop=None, heartbeat={}, ssl_context=None):
 
         self.host = host
         self.port = port
+        self.ssl_context = ssl_context
 
         if loop is None:
             loop = asyncio.get_event_loop()
 
         self._loop = loop
-        self._factory = functools.partial(StompReader, handler, loop=loop, heartbeat=heartbeat)
+        self._factory = functools.partial(
+            StompReader, handler, loop=loop, heartbeat=heartbeat)
 
     async def connect(self):
         trans, proto = await self._loop.create_connection(
-            self._factory, host=self.host, port=self.port)
+            self._factory, host=self.host, port=self.port,
+            ssl=self.ssl_context)
 
         self._transport = trans
         self._protocol = proto

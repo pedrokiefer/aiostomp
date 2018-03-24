@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import asyncio
+import ssl
 
 from aiostomp.test_utils import AsyncTestCase, unittest_run_loop
 
@@ -325,6 +326,19 @@ class TestAioStomp(AsyncTestCase):
     async def setUpAsync(self):
         self.stomp = AioStomp('127.0.0.1', 61613)
 
+    @patch('aiostomp.aiostomp.StompProtocol')
+    @unittest_run_loop
+    async def test_aiostomp_supports_ssl(self, stom_protocol_mock):
+        ssl_context = ssl.create_default_context()
+        stomp = AioStomp('127.0.0.1', 61613, ssl_context=ssl_context)
+
+        args, kwargs = stom_protocol_mock.call_args
+
+        self.assertTrue('127.0.0.1' in args)
+        self.assertTrue(61613 in args)
+        self.assertTrue(stomp in args)
+        self.assertTrue(kwargs['ssl_context'] == ssl_context)
+
     @unittest_run_loop
     async def test_can_connect_to_server(self):
         self.stomp._protocol.connect = CoroutineMock()
@@ -519,7 +533,19 @@ class TestStompProtocol(AsyncTestCase):
         await self.protocol.connect()
 
         self._loop.create_connection.assert_called_with(
-            self.protocol._factory, host='127.0.0.1', port=61613)
+            self.protocol._factory, host='127.0.0.1', port=61613,
+            ssl=None)
+
+    @unittest_run_loop
+    async def test_can_create_a_connection_with_ssl_context(self):
+        ssl_context = ssl.create_default_context()
+        self.protocol.ssl_context = ssl_context
+
+        await self.protocol.connect()
+
+        self._loop.create_connection.assert_called_with(
+            self.protocol._factory, host='127.0.0.1', port=61613,
+            ssl=ssl_context)
 
     @unittest_run_loop
     async def test_can_subscribe(self):
