@@ -77,6 +77,46 @@ class TestStompReader(AsyncTestCase):
         stomp._transport.write.assert_called_with(
             b'CONNECT\naccept-version:1.1\nheart-beat:1000,1000\n\n\x00')
 
+    @unittest_run_loop
+    async def test_can_connect_with_username(self):
+        stomp = StompReader(
+            None,
+            self.loop,
+            heartbeat={'enabled': True, 'cx': 1000, 'cy': 1000},
+            username='pkiefer')
+        stomp._transport = Mock()
+
+        stomp.connect()
+        stomp._transport.write.assert_called_with(
+            b'CONNECT\naccept-version:1.1\nheart-beat:1000,1000\nlogin:pkiefer\n\n\x00')  # noqa
+
+    @unittest_run_loop
+    async def test_can_connect_with_password(self):
+        stomp = StompReader(
+            None,
+            self.loop,
+            heartbeat={'enabled': True, 'cx': 1000, 'cy': 1000},
+            password='pass')
+        stomp._transport = Mock()
+
+        stomp.connect()
+        stomp._transport.write.assert_called_with(
+            b'CONNECT\naccept-version:1.1\nheart-beat:1000,1000\npasscode:pass\n\n\x00')  # noqa
+
+    @unittest_run_loop
+    async def test_can_connect_with_login_pass(self):
+        stomp = StompReader(
+            None,
+            self.loop,
+            heartbeat={'enabled': True, 'cx': 1000, 'cy': 1000},
+            username='pkiefer',
+            password='pass')
+        stomp._transport = Mock()
+
+        stomp.connect()
+        stomp._transport.write.assert_called_with(
+            b'CONNECT\naccept-version:1.1\nheart-beat:1000,1000\nlogin:pkiefer\npasscode:pass\n\n\x00')  # noqa
+
     @patch('aiostomp.aiostomp.StompReader._handle_connect')
     @unittest_run_loop
     async def test_can_process_connected_frame(self, connect_handle_mock):

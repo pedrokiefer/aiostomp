@@ -2,7 +2,7 @@ import asyncio
 import functools
 import logging
 
-from collections import deque
+from collections import deque, OrderedDict
 
 
 from async_timeout import timeout
@@ -44,10 +44,10 @@ class AioStomp:
 
         self._on_error = error_handler
 
-    async def connect(self):
+    async def connect(self, username=None, password=None):
         logger.debug('connect')
         try:
-            await self._protocol.connect()
+            await self._protocol.connect(username=username, password=password)
         except (asyncio.TimeoutError, ConnectionRefusedError, OSError, asyncio.CancelledError) as exp:
             logger.debug(exp)
             asyncio.ensure_future(self.reconnect())
@@ -124,7 +124,9 @@ class AioStomp:
 
 class StompReader(asyncio.Protocol):
 
-    def __init__(self, frame_handler, loop=None, heartbeat={}):
+    def __init__(self, frame_handler,
+                 loop=None, heartbeat={},
+                 username=None, password=None):
         self.heartbeat = heartbeat
         self.heartbeater = None
 
@@ -137,20 +139,27 @@ class StompReader(asyncio.Protocol):
         self._frames = deque()
 
         self._protocol = sp()
-        self._connect_headers = {}
+        self._connect_headers = OrderedDict()
+
+        self._connect_headers['accept-version'] = '1.1'
 
         if self.heartbeat.get('enabled'):
             self._connect_headers['heart-beat'] = '{},{}'.format(
                 self.heartbeat.get('cx', 0),
                 self.heartbeat.get('cy', 0))
 
-        self._connect_headers['accept-version'] = '1.1'
+        if username is not None:
+            self._connect_headers['login'] = username
+
+        if password is not None:
+            self._connect_headers['passcode'] = password
 
     def close(self):
         pass
 
     def connect(self):
-        buf = self._protocol.build_frame('CONNECT', headers=self._connect_headers)
+        buf = self._protocol.build_frame(
+            'CONNECT', headers=self._connect_headers)
         self._transport.write(buf)
 
     def send_frame(self, command, headers={}, body=''):
@@ -300,10 +309,18 @@ class StompProtocol(object):
             loop = asyncio.get_event_loop()
 
         self._loop = loop
-        self._factory = functools.partial(
-            StompReader, handler, loop=loop, heartbeat=heartbeat)
+        self._heartbeat = heartbeat
+        self._handler = handler
 
-    async def connect(self):
+    async def connect(self, username=None, password=None):
+        self._factory = functools.partial(
+            StompReader,
+            self._handler,
+            username=username,
+            password=password,
+            loop=self._loop,
+            heartbeat=self._heartbeat)
+
         trans, proto = await self._loop.create_connection(
             self._factory, host=self.host, port=self.port,
             ssl=self.ssl_context)
