@@ -50,7 +50,7 @@ class AioStomp:
             await self._protocol.connect(username=username, password=password)
         except (asyncio.TimeoutError, ConnectionRefusedError, OSError, asyncio.CancelledError) as exp:
             logger.debug(exp)
-            asyncio.ensure_future(self.reconnect())
+            asyncio.ensure_future(self.reconnect(username=username, password=password))
             return
 
         self._connected = True
@@ -58,7 +58,7 @@ class AioStomp:
         for subscription in self._subscriptions.values():
             self._protocol.subscribe(subscription)
 
-    async def reconnect(self):
+    async def reconnect(self, username=None, password=None):
         if self._reconnect_max_attempts == -1 or \
                 self._reconnect_attempts < self._reconnect_max_attempts:
 
@@ -68,7 +68,7 @@ class AioStomp:
 
             async with timeout(self._reconnect_timeout):
                 logger.debug('reconnect attempt %s' % self._reconnect_attempts)
-                await self.connect()
+                await self.connect(username=username, password=password)
         else:
             logger.error('All connections attempts failed.')
 
