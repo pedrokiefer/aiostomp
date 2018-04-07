@@ -72,6 +72,9 @@ class AioStomp:
         else:
             logger.error('All connections attempts failed.')
 
+    def close(self):
+        self._protocol.close()
+
     def connection_lost(self, exc):
         self._connected = False
         asyncio.ensure_future(self.reconnect())
@@ -155,7 +158,16 @@ class StompReader(asyncio.Protocol):
             self._connect_headers['passcode'] = password
 
     def close(self):
-        pass
+        self._transport = None
+
+        if self.heartbeater:
+            self.heartbeater.shutdown()
+            self.heartbeater = None
+
+        if self._task_handler:
+            self._task_handler.cancel()
+
+        self._task_handler = None
 
     def connect(self):
         buf = self._protocol.build_frame(
@@ -266,7 +278,7 @@ class StompReader(asyncio.Protocol):
                 self._waiter.set_result(None)
 
     def eof_received(self):
-        pass
+        self.connection_lost(Exception('Got EOF from server'))
 
     async def start(self):
         loop = self._loop
@@ -327,6 +339,9 @@ class StompProtocol(object):
 
         self._transport = trans
         self._protocol = proto
+
+    def close(self):
+        self._protocol.close()
 
     def subscribe(self, subscription):
         headers = {

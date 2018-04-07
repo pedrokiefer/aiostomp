@@ -30,8 +30,7 @@ class TestStompReader(AsyncTestCase):
 
         connect_mock.assert_called_once()
 
-    @unittest_run_loop
-    async def test_connection_can_be_lost(self):
+    def test_connection_can_be_lost(self):
         frame_handler = Mock()
         heartbeater = Mock()
 
@@ -43,6 +42,48 @@ class TestStompReader(AsyncTestCase):
 
         heartbeater.shutdown.assert_called_once()
         frame_handler.connection_lost.assert_called_with(exc)
+
+    def test_connection_can_be_lost_no_heartbeat(self):
+        frame_handler = Mock()
+        heartbeater = Mock()
+
+        stomp = StompReader(frame_handler, self.loop)
+        stomp.heartbeater = None
+        exc = Exception()
+
+        stomp.connection_lost(exc)
+
+        heartbeater.shutdown.assert_not_called()
+        frame_handler.connection_lost.assert_called_with(exc)
+
+    def test_can_close_connection(self):
+        frame_handler = Mock()
+        heartbeater = Mock()
+
+        stomp = StompReader(frame_handler, self.loop)
+        stomp.heartbeater = heartbeater
+
+        stomp.close()
+
+        heartbeater.shutdown.assert_called_once()
+
+    def test_can_close_connection_no_heartbeat(self):
+        frame_handler = Mock()
+        heartbeater = Mock()
+
+        stomp = StompReader(frame_handler, self.loop)
+        stomp.heartbeater = None
+
+        stomp.close()
+
+        heartbeater.shutdown.assert_not_called()
+
+    @patch('aiostomp.aiostomp.StompReader.connection_lost')
+    def test_can_receive_eof(self, connection_lost_mock):
+        stomp = StompReader(None, self.loop)
+        stomp.eof_received()
+
+        connection_lost_mock.assert_called_once()
 
     @unittest_run_loop
     async def test_send_frame_can_raise_error(self):
@@ -426,6 +467,12 @@ class TestAioStomp(AsyncTestCase):
 
         self.stomp.reconnect.assert_called_once()
 
+    @patch('aiostomp.aiostomp.StompProtocol.close')
+    def test_can_close_connection(self, close_mock):
+        self.stomp.close()
+
+        close_mock.assert_called_once()
+
     def test_can_subscribe(self):
         self.stomp._protocol.subscribe = Mock()
 
@@ -575,6 +622,13 @@ class TestStompProtocol(AsyncTestCase):
         self._loop.create_connection.assert_called_with(
             self.protocol._factory, host='127.0.0.1', port=61613,
             ssl=None)
+
+    @unittest_run_loop
+    async def test_can_close(self):
+        await self.protocol.connect()
+        self.protocol.close()
+
+        self._protocol.close.assert_called_once()
 
     @unittest_run_loop
     async def test_can_create_a_connection_with_ssl_context(self):

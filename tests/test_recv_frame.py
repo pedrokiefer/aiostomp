@@ -30,6 +30,20 @@ class TestRecvFrame(TestCase):
         with self.assertRaises(UnicodeDecodeError):
             self.protocol._decode(data)
 
+    def test_can_reset(self):
+        self.protocol.feed_data(
+            b'CONNECT\n'
+            b'accept-version:1.0\n\n\x00'
+        )
+
+        self.assertEqual(len(self.protocol._pending_parts), 0)
+        self.assertEqual(len(self.protocol._frames_ready), 1)
+
+        self.protocol.reset()
+
+        self.assertEqual(len(self.protocol._pending_parts), 0)
+        self.assertEqual(len(self.protocol._frames_ready), 0)
+
     def test_single_packet(self):
         self.protocol.feed_data(
             b'CONNECT\n'
