@@ -57,8 +57,7 @@ class AioStomp:
 
         await self._reconnect()
 
-        self._connected = True
-        self._reconnect_attempts = 0
+    def _resubscribe_queues(self):
         for subscription in self._subscriptions.values():
             self._protocol.subscribe(subscription)
 
@@ -89,6 +88,9 @@ class AioStomp:
                 self._retry_interval = 0.5
                 self._reconnect_attempts = 0
                 self._is_retrying = False
+                self._connected = True
+
+                self._resubscribe_queues()
                 return
 
             except OSError:
