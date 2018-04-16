@@ -6,7 +6,7 @@ from aiostomp.test_utils import AsyncTestCase, unittest_run_loop
 
 from aiostomp.aiostomp import AioStomp, StompReader, StompProtocol
 from aiostomp.subscription import Subscription
-from aiostomp.errors import StompError, StompDisconnectedError
+from aiostomp.errors import StompError, StompDisconnectedError, ExceededRetryCount
 from aiostomp.frame import Frame
 
 from asynctest import CoroutineMock, Mock, patch
@@ -461,7 +461,11 @@ class TestAioStomp(AsyncTestCase):
         self.stomp._reconnect_max_attempts = 1
         self.stomp._reconnect_attempts = 1
 
-        await self.stomp._reconnect()
+        self.stomp._protocol.connect = CoroutineMock()
+        self.stomp._protocol.connect.side_effect = OSError()
+
+        with self.assertRaises(ExceededRetryCount):
+            await self.stomp._reconnect()
 
         logger_mock.error.assert_called_with(
             'All connections attempts failed.')

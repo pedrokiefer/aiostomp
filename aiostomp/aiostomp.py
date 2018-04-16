@@ -5,7 +5,7 @@ import logging
 from collections import deque, OrderedDict
 
 from aiostomp.protocol import StompProtocol as sp
-from aiostomp.errors import StompError, StompDisconnectedError
+from aiostomp.errors import StompError, StompDisconnectedError, ExceededRetryCount
 from aiostomp.subscription import Subscription
 from aiostomp.heartbeat import StompHeartbeater
 
@@ -19,7 +19,7 @@ class AioStomp:
                  ssl_context=None,
                  reconnect_max_attempts=-1, reconnect_timeout=1000,
                  heartbeat=True, heartbeat_interval_cx=1000, heartbeat_interval_cy=1000,
-                 error_handler=None):
+                 error_handler=None, loop=None):
 
         self._heartbeat = {
             'enabled': heartbeat,
@@ -29,6 +29,7 @@ class AioStomp:
 
         self._host = host
         self._port = port
+        self._loop = loop or asyncio.get_event_loop()
 
         self._protocol = StompProtocol(
             self, host, port, heartbeat=self._heartbeat,
@@ -41,6 +42,7 @@ class AioStomp:
         self._password = None
 
         self._retry_interval = .5
+        self._is_retrying = False
 
         self._reconnect_max_attempts = reconnect_max_attempts
         self._reconnect_timeout = reconnect_timeout / 1000.0
@@ -53,12 +55,9 @@ class AioStomp:
         self._username = username
         self._password = password
 
-        status = await self._reconnect()
+        await self._reconnect()
 
-        if not status:
-            return
-
-        self._connected = status
+        self._connected = True
         self._reconnect_attempts = 0
         for subscription in self._subscriptions.values():
             self._protocol.subscribe(subscription)
@@ -77,8 +76,8 @@ class AioStomp:
         return False
 
     async def _reconnect(self):
-
-        while self._should_retry():
+        self._is_retrying = True
+        while True:
             try:
                 logger.info('Connecting to stomp server: {}:{}'.format(
                     self._host, self._port))
@@ -89,22 +88,30 @@ class AioStomp:
 
                 self._retry_interval = 0.5
                 self._reconnect_attempts = 0
-                return True
+                self._is_retrying = False
+                return
 
             except OSError:
-                self._increment_retry_interval()
-                logger.info('Connecting to stomp server failed. Retrying in {} seconds'.format(self._retry_interval))
-                await asyncio.sleep(self._retry_interval)
+                logger.info('Connecting to stomp server failed.')
 
-        logger.error('All connections attempts failed.')
-        return False
+                if self._should_retry():
+                    logger.info('Retrying in {} seconds'.format(self._retry_interval))
+                    await asyncio.sleep(self._retry_interval)
+                else:
+                    logger.error('All connections attempts failed.')
+                    raise ExceededRetryCount()
+
+                self._increment_retry_interval()
 
     def close(self):
+        self._connected = False
         self._protocol.close()
 
     def connection_lost(self, exc):
         self._connected = False
-        asyncio.ensure_future(self._reconnect())
+        if not self._is_retrying:
+            logger.info('Connection lost, will retry.')
+            asyncio.ensure_future(self._reconnect(), loop=self._loop)
 
     def subscribe(self, destination, ack='auto', extra_headers={}, handler=None):
         self._last_subscribe_id += 1
@@ -226,7 +233,7 @@ class StompReader(asyncio.Protocol):
         return self.send_frame('NACK', headers)
 
     def connection_made(self, transport):
-        logger.debug("connection_made")
+        logger.info("Connected")
         super().connection_made(transport)
 
         self._transport = transport

@@ -8,3 +8,7 @@ class StompError(Exception):
 
 class StompDisconnectedError(Exception):
     pass
+
+
+class ExceededRetryCount(Exception):
+    pass
