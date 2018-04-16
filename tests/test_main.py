@@ -431,22 +431,29 @@ class TestAioStomp(AsyncTestCase):
     @unittest_run_loop
     async def test_can_reconnect_to_server(self):
         self.stomp._protocol.connect = CoroutineMock()
-        self.stomp._protocol.connect.side_effect = OSError()
-
-        self.stomp.reconnect = CoroutineMock()
+        self.stomp._protocol.connect.side_effect = [OSError(), True]
 
         await self.stomp.connect()
 
-        self.stomp._protocol.connect.assert_called_once()
-        self.stomp.reconnect.assert_called_once()
+        self.assertEqual(self.stomp._protocol.connect.call_count, 2)
+
+    @unittest_run_loop
+    async def test_can_reconnect_to_server_with_max_attemps(self):
+        self.stomp._reconnect_max_attempts = 2
+        self.stomp._protocol.connect = CoroutineMock()
+        self.stomp._protocol.connect.side_effect = [OSError(), True]
+
+        await self.stomp.connect()
+
+        self.assertEqual(self.stomp._protocol.connect.call_count, 2)
 
     @unittest_run_loop
     async def test_reconnection(self):
-        self.stomp.connect = CoroutineMock()
+        self.stomp._protocol.connect = CoroutineMock()
 
-        await self.stomp.reconnect()
+        await self.stomp._reconnect()
 
-        self.stomp.connect.assert_called_once()
+        self.stomp._protocol.connect.assert_called_once()
 
     @patch('aiostomp.aiostomp.logger')
     @unittest_run_loop
@@ -454,18 +461,18 @@ class TestAioStomp(AsyncTestCase):
         self.stomp._reconnect_max_attempts = 1
         self.stomp._reconnect_attempts = 1
 
-        await self.stomp.reconnect()
+        await self.stomp._reconnect()
 
         logger_mock.error.assert_called_with(
             'All connections attempts failed.')
 
     @unittest_run_loop
     async def test_can_reconnect_on_connection_lost(self):
-        self.stomp.reconnect = CoroutineMock()
+        self.stomp._reconnect = CoroutineMock()
 
         self.stomp.connection_lost(Exception())
 
-        self.stomp.reconnect.assert_called_once()
+        self.stomp._reconnect.assert_called_once()
 
     @patch('aiostomp.aiostomp.StompProtocol.close')
     def test_can_close_connection(self, close_mock):

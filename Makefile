@@ -11,7 +11,6 @@ clean:
 unit test_unit test: clean
 	@nosetests -v --with-cover --cover-package=aiostomp --with-yanc -s tests/
 	@$(MAKE) coverage
-	@$(MAKE) static
 
 focus:
 	@nosetests -vv --with-cover --cover-package=aiostomp \
