@@ -112,7 +112,7 @@ class Sample():
         return self.msg_bytes / self.duration
 
     def __str__(self):
-        return "{} msgs/sec ~ {}/sec".format(self.rate, human_bytes(self.throughput, si=False))
+        return "{:.2f} msgs/sec ~ {}/sec".format(self.rate, human_bytes(self.throughput, si=False))
 
 
 class SampleGroup(Sample):
@@ -181,9 +181,10 @@ class SampleGroup(Sample):
 
 class Benchmark():
 
-    def __init__(self):
+    def __init__(self, server):
         self.subscribe = SampleGroup()
         self.publish = SampleGroup()
+        self.server = server
 
     def add_sample(self, sample_type, sample):
         if sample_type == 'subscribe':
@@ -192,18 +193,28 @@ class Benchmark():
             self.publish.add_sample(sample)
 
     def report(self):
+        print('== AioStomp Benchmark ==')
+        print(' Testing against: {}'.format(self.server))
 
         if len(self.publish.samples):
-            print('\n Publish')
+            print('\n Publish:')
             for i, s in enumerate(self.publish.samples):
-                print('[{}] {} ({} msgs)'.format(i + 1, s, s.messages))
-            print(self.publish.statistics())
+                print('  [{}] {} ({} msgs)'.format(i + 1, s, s.messages))
+
+            print('  Totals:')
+            print('   {} ({} msgs)'.format(
+                self.publish, self.publish.messages))
+            print('   {}'.format(self.publish.statistics()))
 
         if len(self.subscribe.samples):
             print('\n Subscribe')
             for i, s in enumerate(self.subscribe.samples):
-                print('[{}] {} ({} msgs)'.format(i + 1, s, s.messages))
-            print(self.subscribe.statistics())
+                print('  [{}] {} ({} msgs)'.format(i + 1, s, s.messages))
+
+            print('  Totals:')
+            print('   {} ({} msgs)'.format(
+                self.subscribe, self.subscribe.messages))
+            print('   {}'.format(self.subscribe.statistics()))
 
     def to_csv(self):
         pass
@@ -240,28 +251,51 @@ async def run_subscribe(client, bench, message_size, num_msgs, queue):
     class Handler:
         def __init__(self, client, bench, message_size, num_msgs):
             self.counter = 0
+            self.client = client
             self.bench = bench
             self.message_size = message_size
             self.num_msgs = num_msgs
-            self.start = timer()
+            self.timeout = None
+            self.start = None
+            self.end = None
 
-            loop = asyncio.get_event_loop()
-            self._waiter = loop.create_future()
+            self.loop = asyncio.get_event_loop()
+            self._waiter = self.loop.create_future()
+            self._task = asyncio.ensure_future(self.timeout_task())
+
+        async def timeout_task(self):
+            while True:
+                time = self.loop.time()
+
+                if self.timeout and time >= self.timeout:
+                    self.bench.add_sample(
+                        'subscribe',
+                        Sample(self.counter, self.message_size, self.start, self.end))
+                    self._waiter.set_result(True)
+
+                await asyncio.sleep(0.2)
+
+        def reset_timeout(self, timeout, end):
+            self.timeout = timeout
+            self.end = end
 
         async def handle_message(self, frame, message):
             self.counter += 1
 
-            if self.counter >= self.num_msgs:
-                end = timer()
-                self.bench.add_sample(
-                    'subscribe',
-                    Sample(self.counter, self.message_size, self.start, end))
+            if self.start is None:
+                self.start = timer()
 
-                self._waiter.set_result(True)
-                client.close()
+            if self.timeout is None:
+                self.timeout = self.loop.time() + 0.6
+            else:
+                cancel_at = self.loop.time() + 0.6
+                self.reset_timeout(cancel_at, timer())
 
         async def wait_complete(self):
-            return await self._waiter
+            await self._waiter
+
+            self._task.cancel()
+            self.client.close()
 
     h = Handler(client, bench, message_size, num_msgs)
 
@@ -275,7 +309,7 @@ async def run_benchmark(params):
     subscribers = []
     publishers = []
 
-    bench = Benchmark()
+    bench = Benchmark(params.server)
 
     for s in range(params.ns):
         subscribers.append(create_connection(
