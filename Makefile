@@ -8,7 +8,7 @@ clean:
 	rm -rf .coverage
 	find . -name "*.pyc" -exec rm '{}' ';'
 
-unit test_unit test: clean
+unit test_unit test: clean flake8
 	@nosetests -v --with-cover --cover-package=aiostomp --with-yanc -s tests/
 	@$(MAKE) coverage
 
@@ -23,13 +23,10 @@ coverage_html:
 	@coverage html
 	@open htmlcov/index.html
 
-flake8 static:
+flake8:
 	flake8 aiostomp/
+	flake8 bench/
 	flake8 tests/
-
-autopep8:
-	autopep8 -r -i aiostomp/
-	autopep8 -r -i tests/
 
 patch:
 	@$(eval BUMP := 'patch')

@@ -35,12 +35,25 @@ class StompProtocol(object):
         self._frames_ready = []
 
     def feed_data(self, data):
+        pending_data = data
+
+        while True:
+            pending_data = self._feed_data(pending_data)
+
+            if pending_data is None:
+                return
+
+    def _feed_data(self, data):
+
+        if data is None:
+            return None
+
         if not self._pending_parts and data.startswith(self.HEART_BEAT):
             self._frames_ready.append(Frame('HEARTBEAT', headers={}, body=''))
             data = data[1:]
 
             if data:
-                return self.feed_data(data)
+                return data
 
         before_eof, sep, after_eof = data.partition(self.EOF)
 
@@ -53,7 +66,7 @@ class StompProtocol(object):
             self._process_frame(frame_data)
 
         if after_eof:
-            self.feed_data(after_eof)
+            return after_eof
 
     def _process_frame(self, data):
         data = self._decode(data)

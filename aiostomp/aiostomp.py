@@ -1,6 +1,7 @@
 import asyncio
 import functools
 import logging
+import uuid
 
 from collections import deque, OrderedDict
 
@@ -17,6 +18,7 @@ class AioStomp:
 
     def __init__(self, host, port,
                  ssl_context=None,
+                 client_id=None,
                  reconnect_max_attempts=-1, reconnect_timeout=1000,
                  heartbeat=True, heartbeat_interval_cx=1000, heartbeat_interval_cy=1000,
                  error_handler=None, loop=None):
@@ -33,7 +35,7 @@ class AioStomp:
 
         self._protocol = StompProtocol(
             self, host, port, heartbeat=self._heartbeat,
-            ssl_context=ssl_context)
+            ssl_context=ssl_context, client_id=client_id)
         self._last_subscribe_id = 0
         self._subscriptions = {}
 
@@ -165,7 +167,8 @@ class StompReader(asyncio.Protocol):
 
     def __init__(self, frame_handler,
                  loop=None, heartbeat={},
-                 username=None, password=None):
+                 username=None, password=None,
+                 client_id=None):
         self.heartbeat = heartbeat
         self.heartbeater = None
 
@@ -181,6 +184,10 @@ class StompReader(asyncio.Protocol):
         self._connect_headers = OrderedDict()
 
         self._connect_headers['accept-version'] = '1.1'
+
+        if client_id is not None:
+            unique_id = uuid.uuid4()
+            self._connect_headers['client-id'] = '{}-{}'.format(client_id, unique_id)
 
         if self.heartbeat.get('enabled'):
             self._connect_headers['heart-beat'] = '{},{}'.format(
@@ -347,11 +354,12 @@ class StompReader(asyncio.Protocol):
 class StompProtocol(object):
 
     def __init__(self, handler, host, port,
-                 loop=None, heartbeat={}, ssl_context=None):
+                 loop=None, heartbeat={}, ssl_context=None, client_id=None):
 
         self.host = host
         self.port = port
         self.ssl_context = ssl_context
+        self.client_id = client_id
 
         if loop is None:
             loop = asyncio.get_event_loop()
@@ -366,6 +374,7 @@ class StompProtocol(object):
             self._handler,
             username=username,
             password=password,
+            client_id=self.client_id,
             loop=self._loop,
             heartbeat=self._heartbeat)
 
