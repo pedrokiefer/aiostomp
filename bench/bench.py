@@ -4,6 +4,9 @@ import argparse
 import random
 import string
 import math
+import cProfile
+import pstats
+import io
 
 from functools import partial
 from timeit import default_timer as timer
@@ -48,6 +51,18 @@ def get_parameters(args):
         '-csv',
         type=str,
         help="Message size [default: %(default)s].")
+
+    parser.add_argument(
+        '--uvloop',
+        default=False,
+        action='store_true',
+        help='Use uvloop [default: %(default)s].')
+
+    parser.add_argument(
+        '--profile',
+        default=False,
+        action='store_true',
+        help='Enable profile [default: %(default)s].')
 
     parser.add_argument(
         'server',
@@ -309,6 +324,10 @@ async def run_benchmark(params):
     subscribers = []
     publishers = []
 
+    if params.profile:
+        pr = cProfile.Profile()
+        pr.enable()
+
     bench = Benchmark(params.server)
 
     for s in range(params.ns):
@@ -344,7 +363,18 @@ async def run_benchmark(params):
 
     await asyncio.gather(*tasks)
 
+    if params.profile:
+        pr.disable()
+
+        s = io.StringIO()
+        sortby = 'cumulative'
+        ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+        ps.print_stats()
+
     bench.report()
+
+    if params.profile:
+        print(s.getvalue())
 
 
 def main(args=None):
@@ -356,6 +386,10 @@ def main(args=None):
 
     if not params.server or not params.queue:
         return
+
+    if params.uvloop:
+        import uvloop
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run_benchmark(params))
