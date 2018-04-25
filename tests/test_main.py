@@ -4,12 +4,36 @@ import ssl
 
 from aiostomp.test_utils import AsyncTestCase, unittest_run_loop
 
-from aiostomp.aiostomp import AioStomp, StompReader, StompProtocol
+from aiostomp.aiostomp import AioStomp, StompReader, StompProtocol, AioStompStats
 from aiostomp.subscription import Subscription
 from aiostomp.errors import StompError, StompDisconnectedError, ExceededRetryCount
 from aiostomp.frame import Frame
 
 from asynctest import CoroutineMock, Mock, patch
+
+
+class TestStompStats(AsyncTestCase):
+
+    def test_can_increment_a_field(self):
+        stats = AioStompStats()
+        stats.increment('sent_msg')
+
+        self.assertEqual(stats.connection_stats[0]['sent_msg'], 1)
+
+    def test_can_increment_a_missing_field(self):
+        stats = AioStompStats()
+        stats.increment('something')
+
+        self.assertEqual(stats.connection_stats[0]['something'], 1)
+
+    @patch('aiostomp.aiostomp.logger')
+    def test_can_print_stats(self, logger_mock):
+        stats = AioStompStats()
+        stats.increment('sent_msg')
+
+        stats.print_stats()
+
+        self.assertEqual(logger_mock.info.call_count, 5)
 
 
 class TestStompReader(AsyncTestCase):

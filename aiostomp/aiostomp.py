@@ -2,6 +2,7 @@ import asyncio
 import functools
 import logging
 import uuid
+import os
 
 from collections import deque, OrderedDict
 
@@ -10,8 +11,52 @@ from aiostomp.errors import StompError, StompDisconnectedError, ExceededRetryCou
 from aiostomp.subscription import Subscription
 from aiostomp.heartbeat import StompHeartbeater
 
-
+AIOSTOMP_ENABLE_STATS = bool(os.environ.get('AIOSTOMP_ENABLE_STATS', False))
+AIOSTOMP_STATS_INTERVAL = int(os.environ.get('AIOSTOMP_STATS_INTERVAL', 10))
 logger = logging.getLogger(__name__)
+
+
+class AioStompStats:
+
+    def __init__(self):
+        self.connection_count = 0
+        self.interval = AIOSTOMP_STATS_INTERVAL
+        self.connection_stats = []
+
+    def print_stats(self):
+        logger.info('==== AioStomp Stats ====')
+        logger.info('Connections count: {}'.format(self.connection_count))
+        logger.info(' con | sent_msg | rec_msg ')
+        for index, stats in enumerate(self.connection_stats):
+            logger.info(' {:>3} | {:>8} | {:>7} '.format(
+                index + 1,
+                stats['sent_msg'],
+                stats['rec_msg']))
+        logger.info('========================')
+
+    def new_connection(self):
+        self.connection_stats.insert(0, {
+            'sent_msg': 0,
+            'rec_msg': 0
+        })
+
+        if len(self.connection_stats) > 5:
+            self.connection_stats.pop()
+
+    def increment(self, field):
+        if len(self.connection_stats) == 0:
+            self.new_connection()
+
+        if field not in self.connection_stats[0]:
+            self.connection_stats[0][field] = 1
+            return
+
+        self.connection_stats[0][field] += 1
+
+    async def run(self):
+        while True:
+            await asyncio.sleep(self.interval)
+            self.print_stats()
 
 
 class AioStomp:
@@ -33,9 +78,16 @@ class AioStomp:
         self._port = port
         self._loop = loop or asyncio.get_event_loop()
 
+        self._stats = None
+
+        if AIOSTOMP_ENABLE_STATS:
+            self._stats = AioStompStats()
+            self._stats_handler = self._loop.create_task(self._stats.run())
+
         self._protocol = StompProtocol(
             self, host, port, heartbeat=self._heartbeat,
-            ssl_context=ssl_context, client_id=client_id)
+            ssl_context=ssl_context, client_id=client_id,
+            stats=self._stats)
         self._last_subscribe_id = 0
         self._subscriptions = {}
 
@@ -92,6 +144,9 @@ class AioStomp:
                 self._is_retrying = False
                 self._connected = True
 
+                if self._stats:
+                    self._stats.new_connection()
+
                 self._resubscribe_queues()
                 return
 
@@ -110,6 +165,9 @@ class AioStomp:
     def close(self):
         self._connected = False
         self._protocol.close()
+
+        if AIOSTOMP_ENABLE_STATS:
+            self._stats_handler.cancel()
 
     def connection_lost(self, exc):
         self._connected = False
@@ -168,7 +226,8 @@ class StompReader(asyncio.Protocol):
     def __init__(self, frame_handler,
                  loop=None, heartbeat={},
                  username=None, password=None,
-                 client_id=None):
+                 client_id=None,
+                 stats=None):
         self.heartbeat = heartbeat
         self.heartbeater = None
 
@@ -176,6 +235,7 @@ class StompReader(asyncio.Protocol):
         self._frame_handler = frame_handler
         self._task_handler = self._loop.create_task(self.start())
         self._force_close = False
+        self._stats = stats
 
         self._waiter = None
         self._frames = deque()
@@ -222,6 +282,9 @@ class StompReader(asyncio.Protocol):
 
         if not self._transport:
             raise StompDisconnectedError()
+
+        if self._stats:
+            self._stats.increment('sent_msg')
 
         return self._transport.write(buf)
 
@@ -284,6 +347,9 @@ class StompReader(asyncio.Protocol):
         if not subscription:
             logger.warn('Subscription %s not found' % key)
             return
+
+        if self._stats:
+            self._stats.increment('rec_msg')
 
         result = await subscription.handler(frame, frame.body)
 
@@ -354,12 +420,14 @@ class StompReader(asyncio.Protocol):
 class StompProtocol(object):
 
     def __init__(self, handler, host, port,
-                 loop=None, heartbeat={}, ssl_context=None, client_id=None):
+                 loop=None, heartbeat={}, ssl_context=None, client_id=None,
+                 stats=None):
 
         self.host = host
         self.port = port
         self.ssl_context = ssl_context
         self.client_id = client_id
+        self._stats = stats
 
         if loop is None:
             loop = asyncio.get_event_loop()
@@ -376,7 +444,8 @@ class StompProtocol(object):
             password=password,
             client_id=self.client_id,
             loop=self._loop,
-            heartbeat=self._heartbeat)
+            heartbeat=self._heartbeat,
+            stats=self._stats)
 
         trans, proto = await self._loop.create_connection(
             self._factory, host=self.host, port=self.port,
