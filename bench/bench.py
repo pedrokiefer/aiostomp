@@ -4,6 +4,7 @@ import argparse
 import random
 import string
 import math
+import logging
 import cProfile
 import pstats
 import io
@@ -73,6 +74,35 @@ def get_parameters(args):
         help="Stomp queue to be used.")
 
     return parser.parse_args(args)
+
+
+class InfoFilter(logging.Filter):
+    def filter(self, rec):
+        return rec.levelno in (logging.DEBUG, logging.INFO)
+
+
+def logging_setup(level):
+    log_level = level.upper()
+
+    logger = logging.getLogger()
+    logger.setLevel(log_level)
+
+    logging_formatter = logging.Formatter(
+        fmt='%(asctime)s %(name)s:%(levelname)s %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+    )
+
+    stdout = logging.StreamHandler(sys.stdout)
+    stdout.setLevel(log_level)
+    stdout.addFilter(InfoFilter())
+    stdout.setFormatter(logging_formatter)
+
+    stderr = logging.StreamHandler(sys.stderr)
+    stderr.setLevel(logging.WARNING)
+    stderr.setFormatter(logging_formatter)
+
+    logger.addHandler(stdout)
+    logger.addHandler(stderr)
 
 
 def message_per_client(messages, clients):
@@ -386,6 +416,8 @@ def main(args=None):
 
     if not params.server or not params.queue:
         return
+
+    logging_setup('debug')
 
     if params.uvloop:
         import uvloop
