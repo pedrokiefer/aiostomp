@@ -262,6 +262,32 @@ class TestStompReader(AsyncTestCase):
         await asyncio.sleep(0.001)
         message_handle_mock.assert_called_once()
 
+    @patch('aiostomp.aiostomp.StompReader._handle_message')
+    @unittest_run_loop
+    async def test_consecutive_calls_data_received(self, message_handle_mock):
+        stomp = StompReader(None, self.loop)
+
+        await asyncio.sleep(0.001)
+
+        stomp.data_received(
+            b'MESSAGE\n'
+            b'subscription:1\n'
+            b'message-id:007\n'
+            b'destination:/topic/test\n'
+            b'\n'
+            b'blahh-line-a\n\nblahh-line-b\n\nblahh-line-c\x00')
+
+        stomp.data_received(
+            b'MESSAGE\n'
+            b'subscription:1\n'
+            b'message-id:007\n'
+            b'destination:/topic/test\n'
+            b'\n'
+            b'blahh-line-a\n\nblahh-line-b\n\nblahh-line-c\x00')
+
+        await asyncio.sleep(0.001)
+        self.assertEqual(message_handle_mock.call_count, 2)
+
     @unittest_run_loop
     async def test_can_handle_message(self):
         frame = Frame('MESSAGE', {
