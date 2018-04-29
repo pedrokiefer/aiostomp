@@ -270,6 +270,9 @@ class StompReader(asyncio.Protocol):
         if self._task_handler:
             self._task_handler.cancel()
 
+        if self._waiter:
+            self._task_handler.cancel()
+
         self._task_handler = None
 
     def connect(self):
@@ -324,6 +327,9 @@ class StompReader(asyncio.Protocol):
             self.heartbeater = None
 
         if self._task_handler:
+            self._task_handler.cancel()
+
+        if self._waiter:
             self._task_handler.cancel()
 
         self._task_handler = None
@@ -383,8 +389,9 @@ class StompReader(asyncio.Protocol):
             for frame in frames:
                 self._frames.append(frame)
 
-            if self._waiter:
-                self._waiter.set_result(None)
+            if self._waiter is not None:
+                if not self._waiter.done():
+                    self._waiter.set_result(None)
 
     def eof_received(self):
         self.connection_lost(Exception('Got EOF from server'))
