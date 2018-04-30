@@ -6,6 +6,8 @@ import os
 
 from collections import deque, OrderedDict
 
+from . import stomp
+
 from aiostomp.protocol import StompProtocol as sp
 from aiostomp.errors import StompError, StompDisconnectedError, ExceededRetryCount
 from aiostomp.subscription import Subscription
@@ -175,7 +177,10 @@ class AioStomp:
             logger.info('Connection lost, will retry.')
             asyncio.ensure_future(self._reconnect(), loop=self._loop)
 
-    def subscribe(self, destination, ack='auto', extra_headers={}, handler=None):
+    def subscribe(self, destination,
+                  ack=stomp.Headers.Subscribe.AckModes.AUTO,
+                  extra_headers={},
+                  handler=None):
         self._last_subscribe_id += 1
 
         subscription = Subscription(
@@ -205,7 +210,7 @@ class AioStomp:
         return value
 
     def send(self, destination, body='', headers={}, send_content_length=True):
-        headers['destination'] = destination
+        headers[stomp.Headers.Message.DESTINATION] = destination
 
         if body:
             body = self._encode(body)
@@ -213,7 +218,7 @@ class AioStomp:
             # ActiveMQ determines the type of a message by the
             # inclusion of the content-length header
             if send_content_length:
-                headers['content-length'] = len(body)
+                headers[stomp.Headers.CONTENT_LENGTH] = len(body)
 
         return self._protocol.send(headers, body)
 
@@ -243,22 +248,24 @@ class StompReader(asyncio.Protocol):
         self._protocol = sp()
         self._connect_headers = OrderedDict()
 
-        self._connect_headers['accept-version'] = '1.1'
+        self._connect_headers[stomp.Headers.Connect.ACCEPT_VERSION] = '1.1'
 
         if client_id is not None:
             unique_id = uuid.uuid4()
-            self._connect_headers['client-id'] = '{}-{}'.format(client_id, unique_id)
+            self._connect_headers[stomp.Headers.Connect.CLIENT_ID] = \
+                '{}-{}'.format(client_id, unique_id)
 
         if self.heartbeat.get('enabled'):
-            self._connect_headers['heart-beat'] = '{},{}'.format(
+            self._connect_headers[stomp.Headers.Connect.HEART_BEAT] = \
+                '{},{}'.format(
                 self.heartbeat.get('cx', 0),
                 self.heartbeat.get('cy', 0))
 
         if username is not None:
-            self._connect_headers['login'] = username
+            self._connect_headers[stomp.Headers.Connect.LOGIN] = username
 
         if password is not None:
-            self._connect_headers['passcode'] = password
+            self._connect_headers[stomp.Headers.Connect.PASSCODE] = password
 
     def close(self):
         self._transport = None
@@ -277,7 +284,7 @@ class StompReader(asyncio.Protocol):
 
     def connect(self):
         buf = self._protocol.build_frame(
-            'CONNECT', headers=self._connect_headers)
+            stomp.Commands.CONNECT, headers=self._connect_headers)
         self._transport.write(buf)
 
     def send_frame(self, command, headers={}, body=''):
@@ -293,19 +300,19 @@ class StompReader(asyncio.Protocol):
 
     def ack(self, frame):
         headers = {
-            'subscription': frame.headers['subscription'],
-            'message-id': frame.headers['message-id']
+            stomp.Headers.Ack.SUBSCRIPTION: frame.headers['subscription'],
+            stomp.Headers.Ack.MESSAGE_ID: frame.headers['message-id']
         }
 
-        return self.send_frame('ACK', headers)
+        return self.send_frame(stomp.Commands.ACK, headers)
 
     def nack(self, frame):
         headers = {
-            'subscription': frame.headers['subscription'],
-            'message-id': frame.headers['message-id']
+            stomp.Headers.Ack.SUBSCRIPTION: frame.headers['subscription'],
+            stomp.Headers.Ack.MESSAGE_ID: frame.headers['message-id']
         }
 
-        return self.send_frame('NACK', headers)
+        return self.send_frame(stomp.Commands.NACK, headers)
 
     def connection_made(self, transport):
         logger.info("Connected")
@@ -337,7 +344,7 @@ class StompReader(asyncio.Protocol):
         self._frame_handler.connection_lost(exc)
 
     async def _handle_connect(self, frame):
-        heartbeat = frame.headers.get('heart-beat')
+        heartbeat = frame.headers.get(stomp.Headers.Connected.HEART_BEAT)
         if heartbeat and self.heartbeat.get('enabled'):
             sx, sy = (int(x) for x in heartbeat.split(','))
 
@@ -347,7 +354,7 @@ class StompReader(asyncio.Protocol):
                 await self.heartbeater.start()
 
     async def _handle_message(self, frame):
-        key = frame.headers.get('subscription')
+        key = frame.headers.get(stomp.Headers.Message.SUBSCRIPTION)
 
         subscription = self._frame_handler.get(key)
         if not subscription:
@@ -359,7 +366,10 @@ class StompReader(asyncio.Protocol):
 
         result = await subscription.handler(frame, frame.body)
 
-        if subscription.ack in ['client', 'client-individual']:
+        acks = [stomp.Headers.Subscribe.AckModes.CLIENT,
+                stomp.Headers.Subscribe.AckModes.CLIENT_INDIVIDUAL]
+
+        if subscription.ack in acks:
             if result:
                 self.ack(frame)
             else:
@@ -412,13 +422,13 @@ class StompReader(asyncio.Protocol):
 
             frame = self._frames.popleft()
 
-            if frame.command == 'MESSAGE':
+            if frame.command == stomp.Responses.MESSAGE:
                 await self._handle_message(frame)
-            elif frame.command == 'CONNECTED':
+            elif frame.command == stomp.Responses.CONNECTED:
                 await self._handle_connect(frame)
-            elif frame.command == 'ERROR':
+            elif frame.command == stomp.Responses.ERROR:
                 await self._handle_error(frame)
-            elif frame.command == 'HEARTBEAT':
+            elif frame.command == stomp.Responses.HEARTBEAT:
                 pass
             else:
                 await self._handle_exception(frame)
@@ -466,20 +476,20 @@ class StompProtocol(object):
 
     def subscribe(self, subscription):
         headers = {
-            'id': subscription.id,
-            'destination': subscription.destination,
-            'ack': subscription.ack
+            stomp.Headers.Subscribe.ID: subscription.id,
+            stomp.Headers.Subscribe.DESTINATION: subscription.destination,
+            stomp.Headers.Subscribe.ACK_MODE: subscription.ack
         }
         headers.update(subscription.extra_headers)
 
-        return self._protocol.send_frame('SUBSCRIBE', headers)
+        return self._protocol.send_frame(stomp.Commands.SUBSCRIBE, headers)
 
     def unsubscribe(self, subscription):
         headers = {
-            'id': subscription.id,
-            'destination': subscription.destination
+            stomp.Headers.Unsubscribe.ID: subscription.id,
+            stomp.Headers.Unsubscribe.DESTINATION: subscription.destination
         }
-        return self._protocol.send_frame('UNSUBSCRIBE', headers)
+        return self._protocol.send_frame(stomp.Commands.UNSUBSCRIBE, headers)
 
     def send(self, headers, body):
-        return self._protocol.send_frame('SEND', headers, body)
+        return self._protocol.send_frame(stomp.Commands.SEND, headers, body)

@@ -3,12 +3,12 @@ import logging
 
 from contextlib import suppress
 
+from . import stomp
+
 logger = logging.getLogger()
 
 
 class StompHeartbeater:
-
-    HEART_BEAT = b'\n'
 
     def __init__(self, transport, interval=1000):
         self._transport = transport
@@ -44,4 +44,4 @@ class StompHeartbeater:
             await asyncio.sleep(self.interval)
 
     async def send(self):
-        self._transport.write(self.HEART_BEAT)
+        self._transport.write(stomp.NEWLINE)

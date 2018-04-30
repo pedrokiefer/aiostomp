@@ -1,13 +1,12 @@
 # -*- coding:utf-8 -*-
 import logging
 
+from . import stomp
+
 from aiostomp.frame import Frame
 
 
 class StompProtocol(object):
-
-    HEART_BEAT = b'\n'
-    EOF = b'\x00'
 
     def __init__(self, log_name='StompProtocol'):
         self._pending_parts = []
@@ -48,14 +47,14 @@ class StompProtocol(object):
         if data is None:
             return None
 
-        if not self._pending_parts and data.startswith(self.HEART_BEAT):
-            self._frames_ready.append(Frame('HEARTBEAT', headers={}, body=''))
+        if not self._pending_parts and data.startswith(stomp.NEWLINE):
+            self._frames_ready.append(Frame(stomp.Responses.HEARTBEAT, headers={}, body=''))
             data = data[1:]
 
             if data:
                 return data
 
-        before_eof, sep, after_eof = data.partition(self.EOF)
+        before_eof, sep, after_eof = data.partition(stomp.NULL)
 
         if before_eof:
             self._pending_parts.append(before_eof)
@@ -79,14 +78,14 @@ class StompProtocol(object):
         self._frames_ready.append(Frame(command, headers=headers, body=body))
 
     def build_frame(self, command, headers={}, body=''):
-        lines = [command, '\n']
+        lines = [command, stomp.NEWLINE]
 
         for key, value in sorted(headers.items()):
             lines.append('%s:%s\n' % (key, value))
 
-        lines.append('\n')
+        lines.append(stomp.NEWLINE)
         lines.append(body)
-        lines.append(self.EOF)
+        lines.append(stomp.NULL)
 
         return b''.join([self._encode(line) for line in lines])
 

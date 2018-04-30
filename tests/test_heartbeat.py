@@ -2,6 +2,7 @@ import asyncio
 
 from asynctest import Mock, patch
 
+from aiostomp import stomp
 from aiostomp.test_utils import AsyncTestCase, unittest_run_loop
 from aiostomp.heartbeat import StompHeartbeater
 
@@ -21,7 +22,7 @@ class TestStompHeartbeater(AsyncTestCase):
         stop_mock.assert_not_called()
 
         await asyncio.sleep(0.001)
-        self.transport.write.assert_called_with(StompHeartbeater.HEART_BEAT)
+        self.transport.write.assert_called_with(stomp.NEWLINE)
 
         await asyncio.sleep(0.100)
         self.assertEqual(len(self.transport.write.call_args_list), 2)
@@ -32,7 +33,7 @@ class TestStompHeartbeater(AsyncTestCase):
         await self.heartbeater.start()
 
         await asyncio.sleep(0.001)
-        self.transport.write.assert_called_with(StompHeartbeater.HEART_BEAT)
+        self.transport.write.assert_called_with(stomp.NEWLINE)
 
         await asyncio.sleep(0.100)
         self.assertEqual(len(self.transport.write.call_args_list), 2)
@@ -50,7 +51,7 @@ class TestStompHeartbeater(AsyncTestCase):
         await self.heartbeater.start()
 
         await asyncio.sleep(0.001)
-        self.transport.write.assert_called_with(StompHeartbeater.HEART_BEAT)
+        self.transport.write.assert_called_with(stomp.NEWLINE)
 
         self.heartbeater.shutdown()
 
@@ -69,7 +70,7 @@ class TestStompHeartbeater(AsyncTestCase):
         stop_mock.assert_called_once()
 
         await asyncio.sleep(0.001)
-        self.transport.write.assert_called_with(StompHeartbeater.HEART_BEAT)
+        self.transport.write.assert_called_with(stomp.NEWLINE)
 
         await asyncio.sleep(0.100)
         self.assertEqual(len(self.transport.write.call_args_list), 2)
