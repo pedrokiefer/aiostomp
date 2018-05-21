@@ -35,13 +35,10 @@ class StompProtocol(object):
         self._frames_ready = []
 
     def feed_data(self, data):
-        pending_data = data
+        pending_data = self._feed_data(data)
 
-        while True:
+        while pending_data:
             pending_data = self._feed_data(pending_data)
-
-            if pending_data is None:
-                return
 
     def _feed_data(self, data):
 

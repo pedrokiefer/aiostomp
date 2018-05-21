@@ -54,6 +54,19 @@ class TestStompReader(AsyncTestCase):
 
         connect_mock.assert_called_once()
 
+    @patch('aiostomp.aiostomp.StompReader.connect')
+    @unittest_run_loop
+    async def test_transport_is_closed_connection_close(self, connect_mock):
+        stomp = StompReader(None, self.loop)
+
+        transport = Mock()
+
+        stomp.connection_made(transport)
+
+        connect_mock.assert_called_once()
+
+        stomp.close()
+
     def test_connection_can_be_lost(self):
         frame_handler = Mock()
         heartbeater = Mock()
