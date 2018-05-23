@@ -5,7 +5,6 @@ import uuid
 import os
 
 from collections import deque, OrderedDict
-from contextlib import suppress
 
 from aiostomp.protocol import StompProtocol as sp
 from aiostomp.errors import StompError, StompDisconnectedError, ExceededRetryCount
@@ -232,8 +231,7 @@ class StompReader(asyncio.Protocol):
 
         self.handlers_map = {'MESSAGE': self._handle_message,
                              'CONNECTED': self._handle_connect,
-                             'ERROR': self._handle_error,
-                             'HEARTBEAT': lambda frame: None
+                             'ERROR': self._handle_error
                              }
 
         self.heartbeat = heartbeat
@@ -241,7 +239,6 @@ class StompReader(asyncio.Protocol):
 
         self._loop = loop
         self._frame_handler = frame_handler
-        self._tasks = set()
         self._force_close = False
         self._stats = stats
 
@@ -270,8 +267,6 @@ class StompReader(asyncio.Protocol):
             self._connect_headers['passcode'] = password
 
     def close(self):
-
-        # TODO Check if all tasks are done before closing the transport
 
         # Close the transport only if already connection is made
         if self._transport:
@@ -345,10 +340,6 @@ class StompReader(asyncio.Protocol):
                 self.heartbeater = StompHeartbeater(self._transport, interval)
                 await self.heartbeater.start()
 
-        # Clean up the tasks, to be checked in closing
-        with suppress(KeyError):
-            self._tasks.remove(asyncio.Task.current_task())
-
     async def _handle_message(self, frame):
         key = frame.headers.get('subscription')
 
@@ -368,10 +359,6 @@ class StompReader(asyncio.Protocol):
             else:
                 self.nack(frame)
 
-        # Clean up the tasks, to be checked in closing
-        with suppress(KeyError):
-            self._tasks.remove(asyncio.Task.current_task())
-
     async def _handle_error(self, frame):
         message = frame.headers.get('message')
 
@@ -382,16 +369,8 @@ class StompReader(asyncio.Protocol):
             await self._frame_handler._on_error(
                 StompError(message, frame.body))
 
-        # Clean up the tasks, to be checked in closing
-        with suppress(KeyError):
-            self._tasks.remove(asyncio.Task.current_task())
-
     async def _handle_exception(self, frame):
         logger.warn('Unhandled frame: %s' % frame.command)
-
-        # Clean up the tasks, to be checked in closing
-        with suppress(KeyError):
-            self._tasks.remove(asyncio.Task.current_task())
 
     def data_received(self, data):
         if not data:
@@ -400,9 +379,9 @@ class StompReader(asyncio.Protocol):
         self._protocol.feed_data(data)
 
         for frame in self._protocol.pop_frames():
-            self._tasks.add(self._loop.create_task(
-                    self.handlers_map.get(frame.command,
-                            self._handle_exception)(frame)))
+            if frame.command != 'HEARTBEAT':
+                self._loop.create_task(self.handlers_map.get(frame.command,
+                                       self._handle_exception)(frame))
 
     def eof_received(self):
         self.connection_lost(Exception('Got EOF from server'))
