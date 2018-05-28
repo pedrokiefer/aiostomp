@@ -541,6 +541,17 @@ class TestAioStomp(AsyncTestCase):
 
         self.stomp._reconnect.assert_called_once()
 
+    @unittest_run_loop
+    async def test_no_reconnect_on_close(self):
+        self.stomp._reconnect = CoroutineMock()
+
+        self.stomp._closed = True
+
+        self.stomp.connection_lost(Exception())
+
+        self.stomp._reconnect.assert_not_called()
+        self.stomp._closed = False
+
     @patch('aiostomp.aiostomp.StompProtocol.close')
     def test_can_close_connection(self, close_mock):
         self.stomp.close()
