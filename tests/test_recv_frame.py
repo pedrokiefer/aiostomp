@@ -126,7 +126,7 @@ class TestRecvFrame(TestCase):
 
         self.assertEqual(frames[2].command, u'ERROR')
         self.assertEqual(frames[2].headers, {u'header': u'1.0'})
-        self.assertEqual(frames[2].body, u'Hey dude')
+        self.assertEqual(frames[2].body.decode(), u'Hey dude')
 
         self.assertEqual(frames[3].command, u'HEARTBEAT')
 
@@ -150,7 +150,7 @@ class TestRecvFrame(TestCase):
         self.assertEqual(self.protocol._frames_ready[0].body, None)
         self.assertEqual(self.protocol._frames_ready[1].command, u'HEARTBEAT')
         self.assertEqual(str(self.protocol._frames_ready[1]), '<Frame: HEARTBEAT headers: >')
-        self.assertEqual(self.protocol._frames_ready[2].body, u'ç')
+        self.assertEqual(self.protocol._frames_ready[2].body.decode(), u'ç')
         self.assertEqual(self.protocol._frames_ready[3].command, u'HEARTBEAT')
 
     def test_heart_beat_packet1(self):

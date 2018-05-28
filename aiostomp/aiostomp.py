@@ -92,6 +92,7 @@ class AioStomp:
         self._subscriptions = {}
 
         self._connected = False
+        self._closed = False
         self._username = None
         self._password = None
 
@@ -163,6 +164,9 @@ class AioStomp:
                 self._increment_retry_interval()
 
     def close(self):
+        # Indicate requested closure to break the reconnect loop
+        self._closed = True
+
         self._connected = False
         self._protocol.close()
 
@@ -171,6 +175,11 @@ class AioStomp:
 
     def connection_lost(self, exc):
         self._connected = False
+
+        # If close has been requested, do no reconnect!
+        if self._closed:
+            return
+
         if not self._is_retrying:
             logger.info('Connection lost, will retry.')
             asyncio.ensure_future(self._reconnect(), loop=self._loop)

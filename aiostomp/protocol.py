@@ -17,7 +17,7 @@ class StompProtocol(object):
     def _decode(self, byte_data):
         try:
             if isinstance(byte_data, (bytes, bytearray)):
-                return byte_data.decode('utf-8')
+                return byte_data.decode('latin-1')
 
             return byte_data
         except UnicodeDecodeError:
@@ -71,7 +71,7 @@ class StompProtocol(object):
 
         raw_headers, remaing = remaing.split('\n\n', 1)
         headers = dict([l.split(':', 1) for l in raw_headers.split('\n')])
-        body = remaing if remaing else None
+        body = remaing.encode('latin-1') if remaing else None
 
         self._frames_ready.append(Frame(command, headers=headers, body=body))
 
