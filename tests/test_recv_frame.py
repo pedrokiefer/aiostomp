@@ -59,7 +59,23 @@ class TestRecvFrame(TestCase):
 
         self.assertEqual(self.protocol._pending_parts, [])
 
-    def test_parcial_packet(self):
+    def test_no_body_command_packet(self):
+        self.protocol.feed_data(
+            b'CONNECT\n'
+            b'accept-version:1.0\n\n'
+            b'Hey dude\x00',
+        )
+
+        frames = self.protocol.pop_frames()
+
+        self.assertEqual(len(frames), 1)
+        self.assertEqual(frames[0].command, u'CONNECT')
+        self.assertEqual(frames[0].headers, {u'accept-version': u'1.0'})
+        self.assertEqual(frames[0].body, None)
+
+        self.assertEqual(self.protocol._pending_parts, [])
+
+    def test_partial_packet(self):
         stream_data = (
             b'CONNECT\n',
             b'accept-version:1.0\n\n\x00',
@@ -75,7 +91,7 @@ class TestRecvFrame(TestCase):
         self.assertEqual(frames[0].headers, {u'accept-version': u'1.0'})
         self.assertEqual(frames[0].body, None)
 
-    def test_multi_parcial_packet1(self):
+    def test_multi_partial_packet1(self):
         stream_data = (
             b'CONNECT\n',
             b'accept-version:1.0\n\n\x00\n',
@@ -103,7 +119,30 @@ class TestRecvFrame(TestCase):
 
         self.assertEqual(self.protocol._pending_parts, [])
 
-    def test_multi_parcial_packet2(self):
+    def test_read_content_by_length(self):
+        stream_data = (
+            b'ERROR\n',
+            b'header:1.0\n',
+            b'content-length:3\n\n'
+            b'Hey dude\x00\n',
+        )
+
+        for data in stream_data:
+            self.protocol.feed_data(data)
+
+        frames = self.protocol.pop_frames()
+        self.assertEqual(len(frames), 2)
+
+        self.assertEqual(frames[0].command, u'ERROR')
+        self.assertEqual(frames[0].headers, {u'header': u'1.0',
+                                             u'content-length': u'3'})
+        self.assertEqual(frames[0].body.decode(), u'Hey')
+
+        self.assertEqual(frames[1].command, u'HEARTBEAT')
+
+        self.assertEqual(self.protocol._pending_parts, [])
+
+    def test_multi_partial_packet2(self):
         stream_data = (
             b'CONNECTED\n'
             b'version:1.0\n\n',
@@ -132,7 +171,7 @@ class TestRecvFrame(TestCase):
 
         self.assertEqual(self.protocol._pending_parts, [])
 
-    def test_multi_parcial_packet_with_utf8(self):
+    def test_multi_partial_packet_with_utf8(self):
         stream_data = (
             b'CONNECTED\n'
             b'accept-version:1.0\n\n',

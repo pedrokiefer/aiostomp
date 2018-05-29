@@ -17,7 +17,7 @@ class StompProtocol(object):
     def _decode(self, byte_data):
         try:
             if isinstance(byte_data, (bytes, bytearray)):
-                return byte_data.decode('latin-1')
+                return byte_data.decode('utf-8')
 
             return byte_data
         except UnicodeDecodeError:
@@ -66,12 +66,21 @@ class StompProtocol(object):
             return after_eof
 
     def _process_frame(self, data):
-        data = self._decode(data)
-        command, remaing = data.split('\n', 1)
+        command, remaining = data.split(b'\n', 1)
+        command = self._decode(command)
 
-        raw_headers, remaing = remaing.split('\n\n', 1)
+        raw_headers, remaining = remaining.split(b'\n\n', 1)
+        raw_headers = self._decode(raw_headers)
         headers = dict([l.split(':', 1) for l in raw_headers.split('\n')])
-        body = remaing.encode('latin-1') if remaing else None
+
+        body = None
+
+        # Only SEND, MESSAGE and ERROR frames can have body
+        if remaining and command in ('SEND', 'MESSAGE', 'ERROR'):
+            if 'content-length' in headers:
+                body = remaining[:int(headers['content-length'])]
+            else:
+                body = remaining
 
         self._frames_ready.append(Frame(command, headers=headers, body=body))
 
