@@ -87,7 +87,7 @@ class AioStomp:
         self._protocol = StompProtocol(
             self, host, port, heartbeat=self._heartbeat,
             ssl_context=ssl_context, client_id=client_id,
-            stats=self._stats)
+            stats=self._stats, loop=self._loop)
         self._last_subscribe_id = 0
         self._subscriptions = {}
 
@@ -346,7 +346,7 @@ class StompReader(asyncio.Protocol):
 
             if sy:
                 interval = max(self.heartbeat.get('cx', 0), sy)
-                self.heartbeater = StompHeartbeater(self._transport, interval)
+                self.heartbeater = StompHeartbeater(self._transport, interval, loop=self._loop)
                 await self.heartbeater.start()
 
     async def _handle_message(self, frame):
