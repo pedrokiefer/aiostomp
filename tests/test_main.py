@@ -235,7 +235,7 @@ class TestStompReader(AsyncTestCase):
         stomp._transport = Mock()
         await stomp._handle_connect(frame)
 
-        heartbeater_klass_mock.assert_called_with(stomp._transport, 1000)
+        heartbeater_klass_mock.assert_called_with(stomp._transport, 1000, loop=self.loop)
         heartbeater_mock.start.assert_called_once()
 
     @patch('aiostomp.aiostomp.StompHeartbeater')
