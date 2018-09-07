@@ -142,6 +142,59 @@ class TestRecvFrame(TestCase):
 
         self.assertEqual(self.protocol._pending_parts, [])
 
+
+    def test_read_content_by_length_EOF(self):
+        stream_data = (
+            b'ERROR\n',
+            b'header:1.0\n',
+            b'content-length:3\n\n'
+            b'\x00\x00\x00\x00\n',
+        )
+
+
+        for data in stream_data:
+            self.protocol.feed_data(data)
+
+        frames = self.protocol.pop_frames()
+        self.assertEqual(len(frames), 2)
+
+        self.assertEqual(frames[0].command, u'ERROR')
+        self.assertEqual(frames[0].headers, {u'header': u'1.0',
+                                             u'content-length': u'3'})
+        self.assertEqual(frames[0].body, b'\x00\x00\x00')
+
+        self.assertEqual(frames[1].command, u'HEARTBEAT')
+
+        self.assertEqual(self.protocol._pending_parts, [])
+
+    def test_read_partial_content_by_length_EOF(self):
+        stream_data = (
+            b'ERROR\n',
+            b'header:1.0\n',
+            b'content-length:3\n\n'
+            b'\x00\x00',
+            b'\x00\x00\n',
+        )
+
+
+        for data in stream_data:
+            self.protocol.feed_data(data)
+
+        frames = self.protocol.pop_frames()
+        self.assertEqual(len(frames), 2)
+
+        self.assertEqual(frames[0].command, u'ERROR')
+        self.assertEqual(frames[0].headers, {u'header': u'1.0',
+                                             u'content-length': u'3'})
+        self.assertEqual(frames[0].body, b'\x00\x00\x00')
+
+        self.assertEqual(frames[1].command, u'HEARTBEAT')
+
+        self.assertEqual(self.protocol._pending_parts, [])
+
+
+
+
     def test_multi_partial_packet2(self):
         stream_data = (
             b'CONNECTED\n'
@@ -210,6 +263,7 @@ class TestRecvFrame(TestCase):
             b'\nCONNECT\n'
             b'accept-version:1.0\n\n\x00'
         )
+
 
         frames = self.protocol.pop_frames()
         self.assertEqual(len(frames), 2)
