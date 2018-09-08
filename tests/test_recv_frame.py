@@ -142,7 +142,6 @@ class TestRecvFrame(TestCase):
 
         self.assertEqual(self.protocol._pending_parts, [])
 
-
     def test_read_content_by_length_EOF(self):
         stream_data = (
             b'ERROR\n',
@@ -150,7 +149,6 @@ class TestRecvFrame(TestCase):
             b'content-length:3\n\n'
             b'\x00\x00\x00\x00\n',
         )
-
 
         for data in stream_data:
             self.protocol.feed_data(data)
@@ -176,7 +174,6 @@ class TestRecvFrame(TestCase):
             b'\x00\x00\n',
         )
 
-
         for data in stream_data:
             self.protocol.feed_data(data)
 
@@ -191,9 +188,6 @@ class TestRecvFrame(TestCase):
         self.assertEqual(frames[1].command, u'HEARTBEAT')
 
         self.assertEqual(self.protocol._pending_parts, [])
-
-
-
 
     def test_multi_partial_packet2(self):
         stream_data = (
@@ -263,7 +257,6 @@ class TestRecvFrame(TestCase):
             b'\nCONNECT\n'
             b'accept-version:1.0\n\n\x00'
         )
-
 
         frames = self.protocol.pop_frames()
         self.assertEqual(len(frames), 2)
