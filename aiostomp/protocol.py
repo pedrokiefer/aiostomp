@@ -117,7 +117,7 @@ class StompProtocol(object):
 
             missing_length = content_length - existing_length
             # Wait till the entire body is received
-            if len(data) < missing_length:
+            if len(data) <= missing_length:
                 self._intermediate_frame['body'] += data
                 return None, None
 
