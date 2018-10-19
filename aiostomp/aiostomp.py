@@ -208,6 +208,12 @@ class AioStomp:
             self._protocol.unsubscribe(subscription)
             del self._subscriptions[subscription_id]
 
+    def ack(self, frame):
+        return self._protocol.ack(frame)
+
+    def nack(self, frame):
+        return self._protocol.nack(frame)
+
     def _encode(self, value):
         if isinstance(value, str):
             return value.encode('utf-8')
@@ -455,3 +461,19 @@ class StompProtocol(object):
 
     def send(self, headers, body):
         return self._protocol.send_frame('SEND', headers, body)
+
+    def ack(self, frame):
+        headers = {
+            'subscription': frame.headers['subscription'],
+            'message-id': frame.headers['message-id']
+        }
+
+        return self._protocol.send_frame('ACK', headers)
+
+    def nack(self, frame):
+        headers = {
+            'subscription': frame.headers['subscription'],
+            'message-id': frame.headers['message-id']
+        }
+
+        return self._protocol.send_frame('NACK', headers)
