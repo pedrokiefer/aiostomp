@@ -59,6 +59,31 @@ class AioStompStats:
             self.print_stats()
 
 
+class AutoAckContextManager:
+    def __init__(self, protocol, ack_mode='auto', enabled=True):
+        self.protocol = protocol
+        self.enabled = enabled
+        self.ack_mode = ack_mode
+        self.result = None
+        self.frame = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        if not self.enabled:
+            return
+
+        if not self.frame:
+            return
+
+        if self.ack_mode in ['client', 'client-individual']:
+            if self.result:
+                self.protocol.ack(self.frame)
+            else:
+                self.protocol.nack(self.frame)
+
+
 class AioStomp:
 
     def __init__(self, host, port,
@@ -66,7 +91,7 @@ class AioStomp:
                  client_id=None,
                  reconnect_max_attempts=-1, reconnect_timeout=1000,
                  heartbeat=True, heartbeat_interval_cx=1000, heartbeat_interval_cy=1000,
-                 error_handler=None, loop=None):
+                 error_handler=None, loop=None, auto_ack=True):
 
         self._heartbeat = {
             'enabled': heartbeat,
@@ -79,6 +104,7 @@ class AioStomp:
         self._loop = loop or asyncio.get_event_loop()
 
         self._stats = None
+        self._auto_ack = auto_ack
 
         if AIOSTOMP_ENABLE_STATS:
             self._stats = AioStompStats()
@@ -87,7 +113,7 @@ class AioStomp:
         self._protocol = StompProtocol(
             self, host, port, heartbeat=self._heartbeat,
             ssl_context=ssl_context, client_id=client_id,
-            stats=self._stats, loop=self._loop)
+            stats=self._stats, loop=self._loop, auto_ack=self._auto_ack)
         self._last_subscribe_id = 0
         self._subscriptions = {}
 
@@ -226,6 +252,20 @@ class AioStomp:
 
         return self._protocol.send(headers, body)
 
+    def ack(self, frame):
+        if self._auto_ack:
+            logger.warn('Auto ack/nack is enabled. Ignoring call.')
+            return
+
+        return self._protocol.ack(frame)
+
+    def nack(self, frame):
+        if self._auto_ack:
+            logger.warn('Auto ack/nack is enabled. Ignoring call.')
+            return
+
+        return self._protocol.nack(frame)
+
     def get(self, key):
         return self._subscriptions.get(key)
 
@@ -236,7 +276,8 @@ class StompReader(asyncio.Protocol):
                  loop=None, heartbeat={},
                  username=None, password=None,
                  client_id=None,
-                 stats=None):
+                 stats=None,
+                 auto_ack=True):
 
         self.handlers_map = {'MESSAGE': self._handle_message,
                              'CONNECTED': self._handle_connect,
@@ -259,6 +300,7 @@ class StompReader(asyncio.Protocol):
         self._connect_headers = OrderedDict()
 
         self._connect_headers['accept-version'] = '1.1'
+        self._auto_ack = auto_ack
 
         if client_id is not None:
             unique_id = uuid.uuid4()
@@ -360,13 +402,13 @@ class StompReader(asyncio.Protocol):
         if self._stats:
             self._stats.increment('rec_msg')
 
-        result = await subscription.handler(frame, frame.body)
+        with AutoAckContextManager(self,
+                                   ack_mode=subscription.ack,
+                                   enabled=self._auto_ack) as ack_context:
+            result = await subscription.handler(frame, frame.body)
 
-        if subscription.ack in ['client', 'client-individual']:
-            if result:
-                self.ack(frame)
-            else:
-                self.nack(frame)
+            ack_context.frame = frame
+            ack_context.result = result
 
     async def _handle_error(self, frame):
         message = frame.headers.get('message')
@@ -400,13 +442,14 @@ class StompProtocol(object):
 
     def __init__(self, handler, host, port,
                  loop=None, heartbeat={}, ssl_context=None, client_id=None,
-                 stats=None):
+                 stats=None, auto_ack=True):
 
         self.host = host
         self.port = port
         self.ssl_context = ssl_context
         self.client_id = client_id
         self._stats = stats
+        self._auto_ack = auto_ack
 
         if loop is None:
             loop = asyncio.get_event_loop()
@@ -424,7 +467,8 @@ class StompProtocol(object):
             client_id=self.client_id,
             loop=self._loop,
             heartbeat=self._heartbeat,
-            stats=self._stats)
+            stats=self._stats,
+            auto_ack=self._auto_ack)
 
         trans, proto = await self._loop.create_connection(
             self._factory, host=self.host, port=self.port,
@@ -455,3 +499,9 @@ class StompProtocol(object):
 
     def send(self, headers, body):
         return self._protocol.send_frame('SEND', headers, body)
+
+    def ack(self, frame):
+        return self._protocol.ack(frame)
+
+    def nack(self, frame):
+        return self._protocol.nack(frame)
