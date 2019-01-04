@@ -44,7 +44,7 @@ class StompProtocol(object):
 
     def _feed_data(self, data):
 
-        if data.startswith(self.HEART_BEAT):
+        if data.startswith(self.HEART_BEAT) and not self._pending_parts:
             self._frames_ready.append(Frame('HEARTBEAT', headers={}, body=''))
             data = data[1:]
 

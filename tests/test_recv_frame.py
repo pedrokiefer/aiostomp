@@ -294,6 +294,24 @@ class TestRecvFrame(TestCase):
 
         self.assertEqual(self.protocol._pending_parts, [])
 
+    def test_heart_beat_packet_with_pending_data(self):
+        self.protocol.feed_data(
+            b'MESSAGE\n'
+            b'accept-version:1.0')
+        self.protocol.feed_data(b'\n\nsome_data\x00\n')
+
+        frames = self.protocol.pop_frames()
+
+        self.assertEqual(len(frames), 2)
+
+        self.assertEqual(frames[0].command, u'MESSAGE')
+        self.assertEqual(frames[0].headers, {u'accept-version': u'1.0'})
+        self.assertEqual(frames[0].body, b'some_data')
+
+        self.assertEqual(frames[1].command, u'HEARTBEAT')
+
+        self.assertEqual(self.protocol._pending_parts, [])
+
 
 class TestBuildFrame(TestCase):
 
