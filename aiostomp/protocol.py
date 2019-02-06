@@ -111,7 +111,7 @@ class StompProtocol(object):
             content_length = int(headers['content-length'])
 
             if 'body' not in self._intermediate_frame:
-                    self._intermediate_frame['body'] = b''
+                self._intermediate_frame['body'] = b''
 
             existing_length = len(self._intermediate_frame['body'])
 
@@ -133,7 +133,7 @@ class StompProtocol(object):
         else:
 
             if 'body' not in self._intermediate_frame:
-                    self._intermediate_frame['body'] = b''
+                self._intermediate_frame['body'] = b''
 
             # Try to find the end of the frame
             body, sep, extra = data.partition(self.EOF)
