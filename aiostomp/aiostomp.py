@@ -159,7 +159,9 @@ class AioStomp:
                     await asyncio.sleep(self._retry_interval)
                 else:
                     logger.error('All connections attempts failed.')
-                    raise ExceededRetryCount()
+                    if self._on_error:
+                        asyncio.ensure_future(self._on_error(ExceededRetryCount()), loop=self._loop)
+                    break
 
                 self._increment_retry_interval()
 

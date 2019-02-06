@@ -527,11 +527,13 @@ class TestAioStomp(AsyncTestCase):
         self.stomp._protocol.connect = CoroutineMock()
         self.stomp._protocol.connect.side_effect = OSError()
 
-        with self.assertRaises(ExceededRetryCount):
-            await self.stomp._reconnect()
+        self.stomp._on_error = CoroutineMock()
+
+        await self.stomp._reconnect()
 
         logger_mock.error.assert_called_with(
             'All connections attempts failed.')
+        self.assertIsInstance(self.stomp._on_error.call_args[0][0], ExceededRetryCount)
 
     @unittest_run_loop
     async def test_can_reconnect_on_connection_lost(self):
