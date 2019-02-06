@@ -534,6 +534,7 @@ class TestAioStomp(AsyncTestCase):
         logger_mock.error.assert_called_with(
             'All connections attempts failed.')
         self.assertIsInstance(self.stomp._on_error.call_args[0][0], ExceededRetryCount)
+        self.assertEqual(self.stomp._on_error.call_args[0][0].ref, self.stomp)
 
     @unittest_run_loop
     async def test_can_reconnect_on_connection_lost(self):
