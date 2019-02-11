@@ -70,7 +70,10 @@ class StompProtocol(object):
     def _parse_data(self, data):
 
         if not self._intermediate_frame:
-            command, data = data.split(b'\n', 1)
+            try:
+                command, data = data.split(b'\n', 1)
+            except ValueError:
+                return None, data
             command = self._decode(command)
             self._intermediate_frame = {'command': command}
 
