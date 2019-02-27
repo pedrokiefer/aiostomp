@@ -123,7 +123,7 @@ class TestRecvFrame(TestCase):
         stream_data = (
             b'ERROR\n',
             b'header:1.0\n',
-            b'content-length:3\n\n'
+            b'content-length:9\n\n'
             b'Hey dude\x00\n',
         )
 
@@ -135,8 +135,8 @@ class TestRecvFrame(TestCase):
 
         self.assertEqual(frames[0].command, u'ERROR')
         self.assertEqual(frames[0].headers, {u'header': u'1.0',
-                                             u'content-length': u'3'})
-        self.assertEqual(frames[0].body.decode(), u'Hey')
+                                             u'content-length': u'9'})
+        self.assertEqual(frames[0].body.decode(), u'Hey dude')
 
         self.assertEqual(frames[1].command, u'HEARTBEAT')
 
@@ -146,7 +146,7 @@ class TestRecvFrame(TestCase):
         stream_data = (
             b'ERROR\n',
             b'header:1.0\n',
-            b'content-length:3\n\n'
+            b'content-length:4\n\n'
             b'\x00\x00\x00\x00\n',
         )
 
@@ -158,7 +158,7 @@ class TestRecvFrame(TestCase):
 
         self.assertEqual(frames[0].command, u'ERROR')
         self.assertEqual(frames[0].headers, {u'header': u'1.0',
-                                             u'content-length': u'3'})
+                                             u'content-length': u'4'})
         self.assertEqual(frames[0].body, b'\x00\x00\x00')
 
         self.assertEqual(frames[1].command, u'HEARTBEAT')
@@ -169,7 +169,7 @@ class TestRecvFrame(TestCase):
         stream_data = (
             b'ERROR\n',
             b'header:1.0\n',
-            b'content-length:3\n\n'
+            b'content-length:4\n\n'
             b'\x00\x00',
             b'\x00\x00\n',
         )
@@ -182,7 +182,7 @@ class TestRecvFrame(TestCase):
 
         self.assertEqual(frames[0].command, u'ERROR')
         self.assertEqual(frames[0].headers, {u'header': u'1.0',
-                                             u'content-length': u'3'})
+                                             u'content-length': u'4'})
         self.assertEqual(frames[0].body, b'\x00\x00\x00')
 
         self.assertEqual(frames[1].command, u'HEARTBEAT')
@@ -193,7 +193,7 @@ class TestRecvFrame(TestCase):
         stream_data = (
             b'ERROR\n',
             b'header:1.0\n',
-            b'content-length:3\n\n'
+            b'content-length:4\n\n'
             b'\x00\x00',
             b'\x00',
             b'\x00\n'
@@ -207,7 +207,7 @@ class TestRecvFrame(TestCase):
 
         self.assertEqual(frames[0].command, u'ERROR')
         self.assertEqual(frames[0].headers, {u'header': u'1.0',
-                                             u'content-length': u'3'})
+                                             u'content-length': u'4'})
         self.assertEqual(frames[0].body, b'\x00\x00\x00')
 
         self.assertEqual(frames[1].command, u'HEARTBEAT')
