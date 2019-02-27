@@ -44,7 +44,9 @@ class StompProtocol(object):
 
     def _feed_data(self, data):
 
-        if data.startswith(self.HEART_BEAT) and not self._pending_parts:
+        if (data.startswith(self.HEART_BEAT) and
+           not self._pending_parts and
+           not self._intermediate_frame):
             self._frames_ready.append(Frame('HEARTBEAT', headers={}, body=''))
             data = data[1:]
 
@@ -54,7 +56,7 @@ class StompProtocol(object):
         self._pending_parts.append(data)
 
         extra_data, partial_data = self._parse_data(
-                b''.join(self._pending_parts))
+            b''.join(self._pending_parts))
 
         if partial_data:
             self._pending_parts = [partial_data]
@@ -119,19 +121,19 @@ class StompProtocol(object):
             existing_length = len(self._intermediate_frame['body'])
 
             missing_length = content_length - existing_length
+
             # Wait till the entire body is received
             if len(data) <= missing_length:
                 self._intermediate_frame['body'] += data
                 return None, None
 
-            self._intermediate_frame['body'] += data[:missing_length - 1]
+            self._intermediate_frame['body'] += data[:missing_length]
             self._frames_ready.append(Frame(**self._intermediate_frame))
 
             self._intermediate_frame = None
             # Split at the end of the frame which is at the end of the body
             # and return the rest for further processing
-            _, extra = data[missing_length - 1:].split(self.EOF, 1)
-            return extra, None
+            return data[missing_length + 1:], None
 
         else:
 

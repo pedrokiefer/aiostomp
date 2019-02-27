@@ -59,6 +59,22 @@ class TestRecvFrame(TestCase):
 
         self.assertEqual(self.protocol._pending_parts, [])
 
+    def test_single_packet_2(self):
+        self.protocol.feed_data(
+            b'MESSAGE\n'
+            b'destination:/queue/a\n'
+            b'\ndata\x00'
+        )
+
+        frames = self.protocol.pop_frames()
+
+        self.assertEqual(len(frames), 1)
+        self.assertEqual(frames[0].command, u'MESSAGE')
+        self.assertEqual(frames[0].headers, {'destination': '/queue/a'})
+        self.assertEqual(frames[0].body, b'data')
+
+        self.assertEqual(self.protocol._pending_parts, [])
+
     def test_no_body_command_packet(self):
         self.protocol.feed_data(
             b'CONNECT\n'
@@ -123,7 +139,7 @@ class TestRecvFrame(TestCase):
         stream_data = (
             b'ERROR\n',
             b'header:1.0\n',
-            b'content-length:9\n\n'
+            b'content-length:8\n\n'
             b'Hey dude\x00\n',
         )
 
@@ -135,7 +151,7 @@ class TestRecvFrame(TestCase):
 
         self.assertEqual(frames[0].command, u'ERROR')
         self.assertEqual(frames[0].headers, {u'header': u'1.0',
-                                             u'content-length': u'9'})
+                                             u'content-length': u'8'})
         self.assertEqual(frames[0].body.decode(), u'Hey dude')
 
         self.assertEqual(frames[1].command, u'HEARTBEAT')
@@ -146,7 +162,7 @@ class TestRecvFrame(TestCase):
         stream_data = (
             b'ERROR\n',
             b'header:1.0\n',
-            b'content-length:4\n\n'
+            b'content-length:3\n\n'
             b'\x00\x00\x00\x00\n',
         )
 
@@ -158,7 +174,7 @@ class TestRecvFrame(TestCase):
 
         self.assertEqual(frames[0].command, u'ERROR')
         self.assertEqual(frames[0].headers, {u'header': u'1.0',
-                                             u'content-length': u'4'})
+                                             u'content-length': u'3'})
         self.assertEqual(frames[0].body, b'\x00\x00\x00')
 
         self.assertEqual(frames[1].command, u'HEARTBEAT')
@@ -169,7 +185,7 @@ class TestRecvFrame(TestCase):
         stream_data = (
             b'ERROR\n',
             b'header:1.0\n',
-            b'content-length:4\n\n'
+            b'content-length:3\n\n'
             b'\x00\x00',
             b'\x00\x00\n',
         )
@@ -182,7 +198,7 @@ class TestRecvFrame(TestCase):
 
         self.assertEqual(frames[0].command, u'ERROR')
         self.assertEqual(frames[0].headers, {u'header': u'1.0',
-                                             u'content-length': u'4'})
+                                             u'content-length': u'3'})
         self.assertEqual(frames[0].body, b'\x00\x00\x00')
 
         self.assertEqual(frames[1].command, u'HEARTBEAT')
@@ -193,7 +209,7 @@ class TestRecvFrame(TestCase):
         stream_data = (
             b'ERROR\n',
             b'header:1.0\n',
-            b'content-length:4\n\n'
+            b'content-length:3\n\n'
             b'\x00\x00',
             b'\x00',
             b'\x00\n'
@@ -207,10 +223,39 @@ class TestRecvFrame(TestCase):
 
         self.assertEqual(frames[0].command, u'ERROR')
         self.assertEqual(frames[0].headers, {u'header': u'1.0',
-                                             u'content-length': u'4'})
+                                             u'content-length': u'3'})
         self.assertEqual(frames[0].body, b'\x00\x00\x00')
 
         self.assertEqual(frames[1].command, u'HEARTBEAT')
+
+        self.assertEqual(self.protocol._pending_parts, [])
+
+    def test_read_content_by_length_EOF_multipacket_2(self):
+        stream_data = (
+            b'MESSAGE\n',
+            b'content-length:3\n\n'
+            b'\x00\x00',
+            b'\x00',
+            b'\x00\nMESSAGE\n',
+            b'destination:/queue/asdf\n',
+            b'\nasdf\x00'
+        )
+
+        for data in stream_data:
+            self.protocol.feed_data(data)
+
+        frames = self.protocol.pop_frames()
+        self.assertEqual(len(frames), 3)
+
+        self.assertEqual(frames[0].command, u'MESSAGE')
+        self.assertEqual(frames[0].headers, {u'content-length': u'3'})
+        self.assertEqual(frames[0].body, b'\x00\x00\x00')
+
+        self.assertEqual(frames[1].command, u'HEARTBEAT')
+
+        self.assertEqual(frames[2].command, u'MESSAGE')
+        self.assertEqual(frames[2].headers, {u'destination': u'/queue/asdf'})
+        self.assertEqual(frames[2].body, b'asdf')
 
         self.assertEqual(self.protocol._pending_parts, [])
 
