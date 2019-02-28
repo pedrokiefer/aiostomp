@@ -88,6 +88,7 @@ class StompProtocol(object):
         return value
 
     def _encode_header(self, value):
+        value = '{}'.format(value)
         if self._version == Stomp.V1_0:
             return value
 
