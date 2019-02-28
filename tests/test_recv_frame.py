@@ -399,6 +399,20 @@ class TestBuildFrame(TestCase):
             b'to:2\n\n'
             b'\x00')
 
+    def test_build_frame_with_header_special_chars(self):
+        buf = self.protocol.build_frame('MESSAGE', {
+            'destination': 'me:123',
+            'extra': 'you\nmore\rextra\\here'
+        }, 'I Am The Walrus')
+
+        self.assertEqual(
+            buf,
+            b'MESSAGE\n'
+            b'destination:me\\c123\n'
+            b'extra:you\\nmore\\rextra\\\\here\n\n'
+            b'I Am The Walrus'
+            b'\x00')
+
 
 class TestReadFrame(TestCase):
 
