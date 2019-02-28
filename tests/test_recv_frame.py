@@ -71,7 +71,7 @@ class TestRecvFrame(TestCase):
         self.assertEqual(len(frames), 1)
         self.assertEqual(frames[0].command, u'CONNECT')
         self.assertEqual(frames[0].headers, {u'accept-version': u'1.0'})
-        self.assertEqual(frames[0].body, None)
+        self.assertEqual(frames[0].body, b'Hey dude')
 
         self.assertEqual(self.protocol._pending_parts, [])
 
@@ -90,6 +90,60 @@ class TestRecvFrame(TestCase):
         self.assertEqual(frames[0].command, u'CONNECT')
         self.assertEqual(frames[0].headers, {u'accept-version': u'1.0'})
         self.assertEqual(frames[0].body, None)
+
+    def test_long_packet(self):
+        data = b'MESSAGE\n' \
+            b'content-length:14\nexpires:0\ndestination:/topic/' \
+            b'xxxxxxxxxxxxxxxxxxxxxxxxxl' \
+            b'\nsubscription:1\npriority:4\nActiveMQ.MQTT.QoS:1\nmessage-id' \
+            b':ID\\cxxxxxx-35207-1543430467768-204' \
+            b'\\c363\\c-1\\c1\\c463859\npersistent:true\ntimestamp' \
+            b':1548945234003\n\n222.222.22.222' \
+            b'\x00\nMESSAGE\ncontent-length:12\nexpires:0\ndestination:' \
+            b'/topic/xxxxxxxxxxxxxxxxxxxxxxxxxx' \
+            b'\nsubscription:1\npriority:4\nActiveMQ.MQTT.QoS:1\nmessage-id' \
+            b':ID\\cxxxxxx-35207-1543430467768-204' \
+            b'\\c363\\c-1\\c1\\c463860\npersistent:true\ntimestamp' \
+            b':1548945234005\n\n88.88.888.88' \
+            b'\x00\nMESSAGE\ncontent-length:11\nexpires:0\ndestination:' \
+            b'/topic/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' \
+            b'\nsubscription:1\npriority:4\nActiveMQ.MQTT.QoS:1\nmessage-id' \
+            b':ID\\cxxxxxx-35207-1543430467768-204'\
+            b'\\c362\\c-1\\c1\\c290793\npersistent:true\ntimestamp' \
+            b':1548945234005\n\n111.11.1.11' \
+            b'\x00\nMESSAGE\ncontent-length:14\nexpires:0\ndestination:' \
+            b'/topic/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' \
+            b'\nsubscription:1\npriority:4\nActiveMQ.MQTT.QoS:1\nmessage-id' \
+            b':ID\\cxxxxxx-35207-1543430467768-204' \
+            b'\\c362\\c-1\\c1\\c290794\npersistent:true\ntimestamp:' \
+            b'1548945234005\n\n222.222.22.222' \
+            b'\x00\nMESSAGE\ncontent-length:12\nexpires:0\ndestination:' \
+            b'/topic/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' \
+            b'\nsubscription:1\npriority:4\nActiveMQ.MQTT.QoS:1\nmessage-id' \
+            b':ID\\cxxxxxx-35207-1543430467768-204' \
+            b'\\c362\\c-1\\c1\\c290795\npersistent:true\ntimestamp:' \
+            b'1548945234005\n\n88.88.888.88\x00\nMESS'
+
+        self.protocol.feed_data(data)
+
+        frames = self.protocol.pop_frames()
+
+        self.assertEqual(len(frames), 10)
+        self.assertEqual(frames[0].command, u'MESSAGE')
+        self.assertEqual(frames[0].headers, {
+            'ActiveMQ.MQTT.QoS': '1',
+            'content-length': '14',
+            'destination': '/topic/xxxxxxxxxxxxxxxxxxxxxxxxxl',
+            'expires': '0',
+            'message-id': 'ID:cxxxxxx-35207-1543430467768-204:c363:c-1:c1:c463859',
+            'persistent': 'true',
+            'priority': '4',
+            'subscription': '1',
+            'timestamp': '1548945234003'
+        })
+        self.assertEqual(frames[0].body, b'222.222.22.222')
+
+        self.assertEqual(frames[1].command, u'HEARTBEAT')
 
     def test_multi_partial_packet1(self):
         stream_data = (
@@ -123,7 +177,7 @@ class TestRecvFrame(TestCase):
         stream_data = (
             b'ERROR\n',
             b'header:1.0\n',
-            b'content-length:3\n\n'
+            b'content-length:8\n\n'
             b'Hey dude\x00\n',
         )
 
@@ -135,8 +189,8 @@ class TestRecvFrame(TestCase):
 
         self.assertEqual(frames[0].command, u'ERROR')
         self.assertEqual(frames[0].headers, {u'header': u'1.0',
-                                             u'content-length': u'3'})
-        self.assertEqual(frames[0].body.decode(), u'Hey')
+                                             u'content-length': u'8'})
+        self.assertEqual(frames[0].body.decode(), u'Hey dude')
 
         self.assertEqual(frames[1].command, u'HEARTBEAT')
 

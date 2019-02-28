@@ -282,8 +282,7 @@ class TestStompReader(AsyncTestCase):
 
         await asyncio.sleep(0.001)
 
-        data = b'stent:true\ntimestamp:1548945234003\n\n111.11.11.111\x00\n' \
-            b'MESSAGE\n' \
+        data = b'MESSAGE\n' \
             b'content-length:14\nexpires:0\ndestination:/topic/' \
             b'xxxxxxxxxxxxxxxxxxxxxxxxxl' \
             b'\nsubscription:1\npriority:4\nActiveMQ.MQTT.QoS:1\nmessage-id' \
@@ -316,10 +315,54 @@ class TestStompReader(AsyncTestCase):
             b'1548945234005\n\n88.88.888.88\x00\nMESS'
 
         stomp.data_received(data)
+        await asyncio.sleep(0.001)
+
+        self.assertEqual(message_handle_mock.call_count, 5)
+        self.assertEqual(b''.join(stomp._protocol.current_command), b'MESS')
+
+    @patch('aiostomp.aiostomp.StompReader._handle_message')
+    @unittest_run_loop
+    async def test_can_process_long_partial_messages(self, message_handle_mock):
+        stomp = StompReader(None, self.loop)
 
         await asyncio.sleep(0.001)
-        self.assertEqual(message_handle_mock.call_count, 5)
-        self.assertEqual(stomp._protocol._pending_parts, [b'MESS'])
+
+        stomp.data_received(
+            b'MESSAGE\n'
+            b'content-length:14\nexpires:0\ndestination:/topic/'
+            b'xxxxxxxxxxxxxxxxxxxxxxxxxl'
+            b'\nsubscription:1\npriority:4\nActiveMQ.MQTT.QoS:1\nmessage-id')
+        await asyncio.sleep(0.001)
+
+        stomp.data_received(
+            b':ID\\cxxxxxx-35207-1543430467768-204'
+            b'\\c363\\c-1\\c1\\c463859\npersistent:true\ntimestamp'
+            b':1548945234003\n\n222.222.22.222'
+            b'\x00\nMESSAGE\ncontent-length:12\nexpires:0\ndestination:'
+            b'/topic/xxxxxxxxxxxxxxxxxxxxxxxxxx'
+            b'\nsubscription:1\npriority:4\nActiveMQ.MQTT.QoS:1\nmessage-id'
+            b':ID\\cxxxxxx-35207-1543430467768-204'
+            b'\\c363\\c-1\\c1\\c463860\npersistent:true\ntimestamp'
+            b':1548945234005\n\n88.88.888.88'
+            b'\x00\nMESS')
+        await asyncio.sleep(0.001)
+
+        stomp.data_received(
+            b'AGE\n'
+            b'content-length:14\nexpires:0\ndestination:/topic/'
+            b'xxxxxxxxxxxxxxxxxxxxxxxxxl'
+            b'\nsubscription:1\npriority:4\nActiveMQ.MQTT.QoS:1\nmessage-id')
+        await asyncio.sleep(0.001)
+
+        stomp.data_received(
+            b':ID\\cxxxxxx-35207-1543430467768-204'
+            b'\\c363\\c-1\\c1\\c463859\npersistent:true\ntimestamp'
+            b':1548945234003\n\n222.222.22.222'
+            b'\x00')
+        await asyncio.sleep(0.001)
+
+        self.assertEqual(message_handle_mock.call_count, 3)
+        self.assertEqual(b''.join(stomp._protocol.current_command), b'')
 
     @patch('aiostomp.aiostomp.StompReader._handle_message')
     @unittest_run_loop
