@@ -51,13 +51,20 @@ class StompProtocol(object):
     def _decode_header(self, header):
         decoded = []
 
-        for i, _b in enumerate(header):
-            _b = bytes([_b])
+        stream = deque(header)
+        has_data = True
+
+        while has_data:
+            if len(stream) == 0:
+                has_data = False
+                break
+
+            _b = bytes([stream.popleft()])
             if _b == b'\\':
-                if i + 1 > len(header):
+                if len(stream) == 0:
                     decoded.append(_b)
                 else:
-                    _next = bytes([header[i + 1]])
+                    _next = bytes([stream.popleft()])
                     if _next == b'n':
                         decoded.append(b'\n')
                     elif _next == b'c':
@@ -67,6 +74,7 @@ class StompProtocol(object):
                     elif _next == b'r':
                         decoded.append(b'\r')
                     else:
+                        stream.appendleft(_next)
                         decoded.append(_b)
             else:
                 decoded.append(_b)

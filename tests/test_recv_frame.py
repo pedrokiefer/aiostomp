@@ -135,7 +135,7 @@ class TestRecvFrame(TestCase):
             'content-length': '14',
             'destination': '/topic/xxxxxxxxxxxxxxxxxxxxxxxxxl',
             'expires': '0',
-            'message-id': 'ID:cxxxxxx-35207-1543430467768-204:c363:c-1:c1:c463859',
+            'message-id': 'ID:xxxxxx-35207-1543430467768-204:363:-1:1:463859',
             'persistent': 'true',
             'priority': '4',
             'subscription': '1',
@@ -412,6 +412,16 @@ class TestBuildFrame(TestCase):
             b'extra:you\\nmore\\rextra\\\\here\n\n'
             b'I Am The Walrus'
             b'\x00')
+
+        self.protocol.feed_data(buf)
+        frames = self.protocol.pop_frames()
+
+        self.assertEqual(len(frames), 1)
+        self.assertEqual(frames[0].command, 'MESSAGE')
+        self.assertEqual(frames[0].headers, {
+            'destination': 'me:123',
+            'extra': 'you\nmore\rextra\\here'
+        })
 
 
 class TestReadFrame(TestCase):
