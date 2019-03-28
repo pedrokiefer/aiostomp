@@ -185,7 +185,9 @@ class AioStomp:
                     await asyncio.sleep(self._retry_interval)
                 else:
                     logger.error('All connections attempts failed.')
-                    raise ExceededRetryCount()
+                    if self._on_error:
+                        asyncio.ensure_future(self._on_error(ExceededRetryCount(self)), loop=self._loop)
+                    break
 
                 self._increment_retry_interval()
 
@@ -210,7 +212,8 @@ class AioStomp:
             logger.info('Connection lost, will retry.')
             asyncio.ensure_future(self._reconnect(), loop=self._loop)
 
-    def subscribe(self, destination, ack='auto', extra_headers={}, handler=None):
+    def subscribe(self, destination, ack='auto', extra_headers=None, handler=None):
+        extra_headers = {} if extra_headers is None else extra_headers
         self._last_subscribe_id += 1
 
         subscription = Subscription(
@@ -239,7 +242,8 @@ class AioStomp:
             return value.encode('utf-8')
         return value
 
-    def send(self, destination, body='', headers={}, send_content_length=True):
+    def send(self, destination, body='', headers=None, send_content_length=True):
+        headers = {} if headers is None else headers
         headers['destination'] = destination
 
         if body:
@@ -273,7 +277,7 @@ class AioStomp:
 class StompReader(asyncio.Protocol):
 
     def __init__(self, frame_handler,
-                 loop=None, heartbeat={},
+                 loop=None, heartbeat=None,
                  username=None, password=None,
                  client_id=None,
                  stats=None,
@@ -284,7 +288,7 @@ class StompReader(asyncio.Protocol):
                              'ERROR': self._handle_error
                              }
 
-        self.heartbeat = heartbeat
+        self.heartbeat = {} if heartbeat is None else heartbeat
         self.heartbeater = None
 
         self._loop = loop
@@ -333,7 +337,8 @@ class StompReader(asyncio.Protocol):
             'CONNECT', headers=self._connect_headers)
         self._transport.write(buf)
 
-    def send_frame(self, command, headers={}, body=''):
+    def send_frame(self, command, headers=None, body=''):
+        headers = {} if headers is None else headers
         buf = self._protocol.build_frame(command, headers, body)
 
         if not self._transport:

@@ -11,4 +11,7 @@ class StompDisconnectedError(Exception):
 
 
 class ExceededRetryCount(Exception):
-    pass
+
+    def __init__(self, ref):
+        super().__init__('Retry count exceeded!')
+        self.ref = ref
