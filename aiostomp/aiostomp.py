@@ -256,16 +256,28 @@ class AioStomp:
 
         return self._protocol.send(headers, body)
 
-    def ack(self, frame):
-        if self._auto_ack:
+    def _subscription_auto_ack(self, frame):
+        key = frame.headers.get('subscription')
+
+        subscription = self._subscriptions.get(key)
+        if not subscription:
+            logger.warn('Subscription %s not found' % key)
+            return True
+
+        if subscription.auto_ack:
             logger.warn('Auto ack/nack is enabled. Ignoring call.')
+            return True
+
+        return False
+
+    def ack(self, frame):
+        if self._subscription_auto_ack(frame):
             return
 
         return self._protocol.ack(frame)
 
     def nack(self, frame):
-        if self._auto_ack:
-            logger.warn('Auto ack/nack is enabled. Ignoring call.')
+        if self._subscription_auto_ack(frame):
             return
 
         return self._protocol.nack(frame)
