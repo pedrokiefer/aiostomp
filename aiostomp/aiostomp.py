@@ -91,7 +91,7 @@ class AioStomp:
                  client_id=None,
                  reconnect_max_attempts=-1, reconnect_timeout=1000,
                  heartbeat=True, heartbeat_interval_cx=1000, heartbeat_interval_cy=1000,
-                 error_handler=None, loop=None, auto_ack=True):
+                 error_handler=None, loop=None):
 
         self._heartbeat = {
             'enabled': heartbeat,
@@ -104,7 +104,6 @@ class AioStomp:
         self._loop = loop or asyncio.get_event_loop()
 
         self._stats = None
-        self._auto_ack = auto_ack
 
         if AIOSTOMP_ENABLE_STATS:
             self._stats = AioStompStats()
@@ -113,7 +112,7 @@ class AioStomp:
         self._protocol = StompProtocol(
             self, host, port, heartbeat=self._heartbeat,
             ssl_context=ssl_context, client_id=client_id,
-            stats=self._stats, loop=self._loop, auto_ack=self._auto_ack)
+            stats=self._stats, loop=self._loop)
         self._last_subscribe_id = 0
         self._subscriptions = {}
 
@@ -212,7 +211,7 @@ class AioStomp:
             logger.info('Connection lost, will retry.')
             asyncio.ensure_future(self._reconnect(), loop=self._loop)
 
-    def subscribe(self, destination, ack='auto', extra_headers=None, handler=None):
+    def subscribe(self, destination, ack='auto', extra_headers=None, handler=None, auto_ack=True):
         extra_headers = {} if extra_headers is None else extra_headers
         self._last_subscribe_id += 1
 
@@ -221,7 +220,8 @@ class AioStomp:
             id=self._last_subscribe_id,
             ack=ack,
             extra_headers=extra_headers,
-            handler=handler)
+            handler=handler,
+            auto_ack=auto_ack)
 
         self._subscriptions[str(self._last_subscribe_id)] = subscription
 
@@ -280,8 +280,7 @@ class StompReader(asyncio.Protocol):
                  loop=None, heartbeat=None,
                  username=None, password=None,
                  client_id=None,
-                 stats=None,
-                 auto_ack=True):
+                 stats=None):
 
         self.handlers_map = {'MESSAGE': self._handle_message,
                              'CONNECTED': self._handle_connect,
@@ -304,7 +303,6 @@ class StompReader(asyncio.Protocol):
         self._connect_headers = OrderedDict()
 
         self._connect_headers['accept-version'] = '1.1'
-        self._auto_ack = auto_ack
 
         if client_id is not None:
             unique_id = uuid.uuid4()
@@ -409,7 +407,7 @@ class StompReader(asyncio.Protocol):
 
         with AutoAckContextManager(self,
                                    ack_mode=subscription.ack,
-                                   enabled=self._auto_ack) as ack_context:
+                                   enabled=subscription.auto_ack) as ack_context:
             result = await subscription.handler(frame, frame.body)
 
             ack_context.frame = frame
@@ -447,14 +445,13 @@ class StompProtocol(object):
 
     def __init__(self, handler, host, port,
                  loop=None, heartbeat={}, ssl_context=None, client_id=None,
-                 stats=None, auto_ack=True):
+                 stats=None):
 
         self.host = host
         self.port = port
         self.ssl_context = ssl_context
         self.client_id = client_id
         self._stats = stats
-        self._auto_ack = auto_ack
 
         if loop is None:
             loop = asyncio.get_event_loop()
@@ -472,8 +469,7 @@ class StompProtocol(object):
             client_id=self.client_id,
             loop=self._loop,
             heartbeat=self._heartbeat,
-            stats=self._stats,
-            auto_ack=self._auto_ack)
+            stats=self._stats)
 
         trans, proto = await self._loop.create_connection(
             self._factory, host=self.host, port=self.port,
