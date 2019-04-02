@@ -59,6 +59,31 @@ class AioStompStats:
             self.print_stats()
 
 
+class AutoAckContextManager:
+    def __init__(self, protocol, ack_mode='auto', enabled=True):
+        self.protocol = protocol
+        self.enabled = enabled
+        self.ack_mode = ack_mode
+        self.result = None
+        self.frame = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        if not self.enabled:
+            return
+
+        if not self.frame:
+            return
+
+        if self.ack_mode in ['client', 'client-individual']:
+            if self.result:
+                self.protocol.ack(self.frame)
+            else:
+                self.protocol.nack(self.frame)
+
+
 class AioStomp:
 
     def __init__(self, host, port,
@@ -186,7 +211,7 @@ class AioStomp:
             logger.info('Connection lost, will retry.')
             asyncio.ensure_future(self._reconnect(), loop=self._loop)
 
-    def subscribe(self, destination, ack='auto', extra_headers=None, handler=None):
+    def subscribe(self, destination, ack='auto', extra_headers=None, handler=None, auto_ack=True):
         extra_headers = {} if extra_headers is None else extra_headers
         self._last_subscribe_id += 1
 
@@ -195,7 +220,8 @@ class AioStomp:
             id=self._last_subscribe_id,
             ack=ack,
             extra_headers=extra_headers,
-            handler=handler)
+            handler=handler,
+            auto_ack=auto_ack)
 
         self._subscriptions[str(self._last_subscribe_id)] = subscription
 
@@ -229,6 +255,32 @@ class AioStomp:
                 headers['content-length'] = len(body)
 
         return self._protocol.send(headers, body)
+
+    def _subscription_auto_ack(self, frame):
+        key = frame.headers.get('subscription')
+
+        subscription = self._subscriptions.get(key)
+        if not subscription:
+            logger.warn('Subscription %s not found.' % key)
+            return True
+
+        if subscription.auto_ack:
+            logger.warn('Auto ack/nack is enabled. Ignoring call.')
+            return True
+
+        return False
+
+    def ack(self, frame):
+        if self._subscription_auto_ack(frame):
+            return
+
+        return self._protocol.ack(frame)
+
+    def nack(self, frame):
+        if self._subscription_auto_ack(frame):
+            return
+
+        return self._protocol.nack(frame)
 
     def get(self, key):
         return self._subscriptions.get(key)
@@ -365,13 +417,13 @@ class StompReader(asyncio.Protocol):
         if self._stats:
             self._stats.increment('rec_msg')
 
-        result = await subscription.handler(frame, frame.body)
+        with AutoAckContextManager(self,
+                                   ack_mode=subscription.ack,
+                                   enabled=subscription.auto_ack) as ack_context:
+            result = await subscription.handler(frame, frame.body)
 
-        if subscription.ack in ['client', 'client-individual']:
-            if result:
-                self.ack(frame)
-            else:
-                self.nack(frame)
+            ack_context.frame = frame
+            ack_context.result = result
 
     async def _handle_error(self, frame):
         message = frame.headers.get('message')
@@ -460,3 +512,9 @@ class StompProtocol(object):
 
     def send(self, headers, body):
         return self._protocol.send_frame('SEND', headers, body)
+
+    def ack(self, frame):
+        return self._protocol.ack(frame)
+
+    def nack(self, frame):
+        return self._protocol.nack(frame)
