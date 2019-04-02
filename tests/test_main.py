@@ -776,6 +776,69 @@ class TestAioStomp(AsyncTestCase):
             'my-header': 'my-value',
         }, '')
 
+    def test_can_ack_a_frame(self):
+        self.stomp._protocol.subscribe = Mock()
+        self.stomp._protocol.ack = Mock()
+
+        self.stomp.subscribe('/queue/test', auto_ack=False)
+        self.assertEqual(len(self.stomp._subscriptions), 1)
+
+        frame = Frame('MESSAGE', {'subscription': '1'}, 'data')
+
+        self.stomp.ack(frame)
+
+        self.stomp._protocol.ack.assert_called_with(frame)
+
+    def test_can_nack_a_frame(self):
+        self.stomp._protocol.subscribe = Mock()
+        self.stomp._protocol.nack = Mock()
+
+        self.stomp.subscribe('/queue/test', auto_ack=False)
+        self.assertEqual(len(self.stomp._subscriptions), 1)
+
+        frame = Frame('MESSAGE', {'subscription': '1'}, 'data')
+
+        self.stomp.nack(frame)
+
+        self.stomp._protocol.nack.assert_called_with(frame)
+
+    @patch('aiostomp.aiostomp.logger')
+    def test_cannot_ack_an_unsubscribed_frame(self, logger_mock):
+        self.stomp._protocol.ack = Mock()
+        self.assertEqual(len(self.stomp._subscriptions), 0)
+
+        frame = Frame('MESSAGE', {'subscription': '1'}, 'data')
+
+        self.stomp.ack(frame)
+        logger_mock.warn.assert_called_with('Subscription 1 not found.')
+        self.stomp._protocol.ack.assert_not_called()
+
+    @patch('aiostomp.aiostomp.logger')
+    def test_cannot_nack_an_unsubscribed_frame(self, logger_mock):
+        self.stomp._protocol.nack = Mock()
+        self.assertEqual(len(self.stomp._subscriptions), 0)
+
+        frame = Frame('MESSAGE', {'subscription': '1'}, 'data')
+
+        self.stomp.nack(frame)
+        logger_mock.warn.assert_called_with('Subscription 1 not found.')
+        self.stomp._protocol.nack.assert_not_called()
+
+    @patch('aiostomp.aiostomp.logger')
+    def test_cannot_ack_an_auto_ack_frame(self, logger_mock):
+        self.stomp._protocol.subscribe = Mock()
+        self.stomp._protocol.ack = Mock()
+
+        self.stomp.subscribe('/queue/test', auto_ack=True)
+        self.assertEqual(len(self.stomp._subscriptions), 1)
+
+        frame = Frame('MESSAGE', {'subscription': '1'}, 'data')
+
+        self.stomp.ack(frame)
+
+        logger_mock.warn.assert_called_with('Auto ack/nack is enabled. Ignoring call.')
+        self.stomp._protocol.ack.assert_not_called()
+
 
 class TestStompProtocol(AsyncTestCase):
 

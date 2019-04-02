@@ -261,7 +261,7 @@ class AioStomp:
 
         subscription = self._subscriptions.get(key)
         if not subscription:
-            logger.warn('Subscription %s not found' % key)
+            logger.warn('Subscription %s not found.' % key)
             return True
 
         if subscription.auto_ack:
