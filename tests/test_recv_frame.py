@@ -1,6 +1,5 @@
 # -*- coding:utf-8 -*-
 from unittest import TestCase
-import six
 
 from aiostomp.protocol import StompProtocol
 
@@ -19,7 +18,7 @@ class TestRecvFrame(TestCase):
         )
 
     def test_on_decode_error_show_string(self):
-        data = MagicMock(spec=six.binary_type)
+        data = MagicMock(spec=bytes)
         data.decode.side_effect = UnicodeDecodeError(
             'hitchhiker',
             b"",
