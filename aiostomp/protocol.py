@@ -10,16 +10,16 @@ logger = logging.getLogger("aiostomp.protocol")
 
 
 class Stomp:
-    V1_0 = '1.0'
-    V1_1 = '1.1'
-    V1_2 = '1.2'
+    V1_0 = "1.0"
+    V1_1 = "1.1"
+    V1_2 = "1.2"
 
 
 class StompProtocol:
 
-    HEART_BEAT = b'\n'
-    EOF = b'\x00'
-    CRLFCRLR = [b'\r', b'\n', b'\r', b'\n']
+    HEART_BEAT = b"\n"
+    EOF = b"\x00"
+    CRLFCRLR = [b"\r", b"\n", b"\r", b"\n"]
 
     MAX_DATA_LENGTH = 1024 * 1024 * 100
     MAX_COMMAND_LENGTH = 1024
@@ -43,7 +43,7 @@ class StompProtocol:
     def _decode(self, byte_data: Union[str, bytes, bytearray]) -> str:
         try:
             if isinstance(byte_data, (bytes, bytearray)):
-                return byte_data.decode('utf-8')
+                return byte_data.decode("utf-8")
             if isinstance(byte_data, str):
                 return byte_data
             else:
@@ -65,52 +65,52 @@ class StompProtocol:
                 break
 
             _b = bytes([stream.popleft()])
-            if _b == b'\\':
+            if _b == b"\\":
                 if len(stream) == 0:
                     decoded.append(_b)
                 else:
                     _next = bytes([stream.popleft()])
-                    if _next == b'n':
-                        decoded.append(b'\n')
-                    elif _next == b'c':
-                        decoded.append(b':')
-                    elif _next == b'\\':
-                        decoded.append(b'\\')
-                    elif _next == b'r':
-                        decoded.append(b'\r')
+                    if _next == b"n":
+                        decoded.append(b"\n")
+                    elif _next == b"c":
+                        decoded.append(b":")
+                    elif _next == b"\\":
+                        decoded.append(b"\\")
+                    elif _next == b"r":
+                        decoded.append(b"\r")
                     else:
                         stream.appendleft(_next[0])
                         decoded.append(_b)
             else:
                 decoded.append(_b)
 
-        return self._decode(b''.join(decoded))
+        return self._decode(b"".join(decoded))
 
     def _encode(self, value: Union[str, bytes]) -> bytes:
         if isinstance(value, str):
-            return value.encode('utf-8')
+            return value.encode("utf-8")
 
         return value
 
     def _encode_header(self, header_value: Any) -> str:
-        value = '{}'.format(header_value)
+        value = "{}".format(header_value)
         if self._version == Stomp.V1_0:
             return value
 
         encoded = []
         for c in value:
-            if c == '\n':
-                encoded.append('\\n')
-            elif c == ':':
-                encoded.append('\\c')
-            elif c == '\\':
-                encoded.append('\\\\')
-            elif c == '\r':
-                encoded.append('\\r')
+            if c == "\n":
+                encoded.append("\\n")
+            elif c == ":":
+                encoded.append("\\c")
+            elif c == "\\":
+                encoded.append("\\\\")
+            elif c == "\r":
+                encoded.append("\\r")
             else:
                 encoded.append(c)
 
-        return ''.join(encoded)
+        return "".join(encoded)
 
     def reset(self) -> None:
         self._frames_ready = []
@@ -132,15 +132,15 @@ class StompProtocol:
                 continue
 
             if not self.processed_headers:
-                if self.awaiting_command and b == b'\n':
-                    self._frames_ready.append(Frame('HEARTBEAT', headers={}, body=None))
+                if self.awaiting_command and b == b"\n":
+                    self._frames_ready.append(Frame("HEARTBEAT", headers={}, body=None))
                     continue
                 else:
                     self.awaiting_command = False
 
                 self.current_command.append(b[0])
-                if b == b'\n' and (
-                    self.previous_byte == b'\n' or ends_with_crlf(self.current_command)
+                if b == b"\n" and (
+                    self.previous_byte == b"\n" or ends_with_crlf(self.current_command)
                 ):
 
                     try:
@@ -149,10 +149,10 @@ class StompProtocol:
                         logger.debug("Parsed action %s", self.action)
 
                         if (
-                            self.action in ('SEND', 'MESSAGE', 'ERROR')
-                            and 'content-length' in self.headers
+                            self.action in ("SEND", "MESSAGE", "ERROR")
+                            and "content-length" in self.headers
                         ):
-                            self.content_length = int(self.headers['content-length'])
+                            self.content_length = int(self.headers["content-length"])
                         else:
                             self.content_length = -1
                     except Exception:
@@ -183,7 +183,7 @@ class StompProtocol:
 
     def process_command(self) -> None:
         body: Optional[bytes] = bytes(self.current_command)
-        if body == b'':
+        if body == b"":
             body = None
         frame = Frame(self.action or "", self.headers, body)
         self._frames_ready.append(frame)
@@ -200,7 +200,7 @@ class StompProtocol:
             if not input:
                 break
             b = input.popleft()
-            if b == b'\n'[0]:
+            if b == b"\n"[0]:
                 line_end = True
                 break
             result.append(b)
@@ -216,26 +216,29 @@ class StompProtocol:
         while True:
             line = self._read_line(data)
             if len(line) > 1:
-                name, value = line.split(b':', 1)
+                name, value = line.split(b":", 1)
                 headers[self._decode(name)] = self._decode_header(value)
             else:
                 break
         return headers
 
     def build_frame(
-        self, command: str, headers: Optional[Dict[str, Any]] = None, body: Union[bytes, str] = ""
+        self,
+        command: str,
+        headers: Optional[Dict[str, Any]] = None,
+        body: Union[bytes, str] = "",
     ) -> bytes:
-        lines: List[Union[str, bytes]] = [command, '\n']
+        lines: List[Union[str, bytes]] = [command, "\n"]
 
         if headers:
             for key, value in sorted(headers.items()):
-                lines.append(f'{key}:{self._encode_header(value)}\n')
+                lines.append(f"{key}:{self._encode_header(value)}\n")
 
-        lines.append('\n')
+        lines.append("\n")
         lines.append(body)
         lines.append(self.EOF)
 
-        return b''.join(self._encode(line) for line in lines)
+        return b"".join(self._encode(line) for line in lines)
 
     def pop_frames(self) -> List[Frame]:
         frames = self._frames_ready

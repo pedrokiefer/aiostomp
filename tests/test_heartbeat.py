@@ -13,7 +13,7 @@ class TestStompHeartbeater(AsyncTestCase):
             self.transport, loop=asyncio.get_event_loop(), interval=100
         )
 
-    @patch('aiostomp.heartbeat.StompHeartbeater.stop')
+    @patch("aiostomp.heartbeat.StompHeartbeater.stop")
     @unittest_run_loop
     async def test_can_start_heartbeater(self, stop_mock):
 
@@ -60,7 +60,7 @@ class TestStompHeartbeater(AsyncTestCase):
 
         self.heartbeater.shutdown()
 
-    @patch('aiostomp.heartbeat.StompHeartbeater.stop')
+    @patch("aiostomp.heartbeat.StompHeartbeater.stop")
     @unittest_run_loop
     async def test_can_restart_heartbeater(self, stop_mock):
         self.heartbeater.is_started = True
