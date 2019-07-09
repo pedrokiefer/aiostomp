@@ -1,9 +1,19 @@
-class Subscription(object):
+from typing import Dict, Any
 
-    def __init__(self, destination, id, ack, extra_headers, handler, auto_ack=True):
+
+class Subscription:
+    def __init__(
+        self,
+        destination: str,
+        id: int,
+        ack: str,
+        extra_headers: Dict[str, str],
+        handler: Any,
+        auto_ack: bool = True,
+    ):
         self.destination = destination
         self.id = id
         self.ack = ack
         self.extra_headers = extra_headers
         self.handler = handler
-        self.auto_ack = auto_ack
+        self.auto_ack: bool = auto_ack

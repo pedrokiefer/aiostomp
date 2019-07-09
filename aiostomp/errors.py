@@ -1,8 +1,9 @@
+from typing import Any, Optional
+
 
 class StompError(Exception):
-
-    def __init__(self, message, detail):
-        super(StompError, self).__init__(message)
+    def __init__(self, message: Optional[str], detail: Any):
+        super().__init__(message)
         self.detail = detail
 
 
@@ -11,7 +12,6 @@ class StompDisconnectedError(Exception):
 
 
 class ExceededRetryCount(Exception):
-
-    def __init__(self, ref):
+    def __init__(self, ref: Any):
         super().__init__('Retry count exceeded!')
         self.ref = ref

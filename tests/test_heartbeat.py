@@ -7,10 +7,11 @@ from aiostomp.heartbeat import StompHeartbeater
 
 
 class TestStompHeartbeater(AsyncTestCase):
-
     async def setUpAsync(self):
         self.transport = Mock()
-        self.heartbeater = StompHeartbeater(self.transport, 100)
+        self.heartbeater = StompHeartbeater(
+            self.transport, loop=asyncio.get_event_loop(), interval=100
+        )
 
     @patch('aiostomp.heartbeat.StompHeartbeater.stop')
     @unittest_run_loop
