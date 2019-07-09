@@ -6,7 +6,7 @@ from contextlib import suppress
 
 class StompHeartbeater:
 
-    HEART_BEAT = b'\n'
+    HEART_BEAT = b"\n"
 
     def __init__(
         self,

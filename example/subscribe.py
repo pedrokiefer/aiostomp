@@ -1,6 +1,7 @@
 import sys
 import logging
 import asyncio
+
 try:
     import tornado
 except ImportError:
@@ -10,9 +11,9 @@ from aiostomp import AioStomp
 
 
 logging.basicConfig(
-    format="%(asctime)s - %(filename)s:%(lineno)d - "
-    "%(levelname)s - %(message)s",
-    level='DEBUG')
+    format="%(asctime)s - %(filename)s:%(lineno)d - " "%(levelname)s - %(message)s",
+    level="DEBUG",
+)
 
 
 async def on_message(frame, message):
@@ -21,19 +22,19 @@ async def on_message(frame, message):
 
 
 async def report_error(error):
-    print('report_error', error)
+    print("report_error", error)
 
 
 async def run():
-    client = AioStomp('localhost', 61613, error_handler=report_error)
+    client = AioStomp("localhost", 61613, error_handler=report_error)
 
-    client.subscribe('/queue/test', handler=on_message)
+    client.subscribe("/queue/test", handler=on_message)
     await client.connect()
 
     await asyncio.sleep(10)
-    client.subscribe('/queue/test', handler=on_message)
+    client.subscribe("/queue/test", handler=on_message)
 
-    client.send('/queue/test', body=u'Pedro Kiefer', headers={})
+    client.send("/queue/test", body=u"Pedro Kiefer", headers={})
 
     await asyncio.sleep(10)
 
@@ -46,6 +47,7 @@ def main(args):
 
 def tornado_main(args):
     from tornado.platform.asyncio import AsyncIOMainLoop
+
     AsyncIOMainLoop().install()
 
     loop = tornado.ioloop.IOLoop.instance()
@@ -53,5 +55,5 @@ def tornado_main(args):
     loop.start()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main(sys.argv)
