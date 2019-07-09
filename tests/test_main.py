@@ -933,4 +933,3 @@ class TestStompProtocol(AsyncTestCase):
         self._protocol.send_frame.assert_called_with(
             'SEND', {'content-length': 2}, '{}'
         )
-

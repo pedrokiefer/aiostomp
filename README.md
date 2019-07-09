@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/pedrokiefer/aiostomp.png?branch=master)](https://travis-ci.org/pedrokiefer/aiostomp)
+[![Build Status](https://travis-ci.com/pedrokiefer/aiostomp.png?branch=master)](https://travis-ci.com/pedrokiefer/aiostomp)
 [![Coverage Status](https://coveralls.io/repos/github/pedrokiefer/aiostomp/badge.svg?branch=master)](https://coveralls.io/github/pedrokiefer/aiostomp?branch=master)
 [![PyPI version](https://badge.fury.io/py/aiostomp.svg)](https://badge.fury.io/py/aiostomp)
 
