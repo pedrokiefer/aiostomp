@@ -74,3 +74,17 @@ class TestStompHeartbeater(AsyncTestCase):
 
         await asyncio.sleep(0.100)
         self.assertEqual(len(self.transport.write.call_args_list), 2)
+
+    
+    async def test_can_monitor_connection_heartbeater(self):
+
+        await self.heartbeater.start()
+
+        await asyncio.sleep(0.001)
+        self.assertTrue(self.heartbeater.connected)
+
+        await asyncio.sleep(0.200)
+        self.assertFalse(self.heartbeater.connected)
+
+        self.heartbeater.receive()
+        self.assertTrue(self.heartbeater.connected)

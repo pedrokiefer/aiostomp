@@ -2,6 +2,7 @@ import asyncio
 from typing import Optional
 
 from contextlib import suppress
+from datetime import datetime
 
 
 class StompHeartbeater:
@@ -20,7 +21,7 @@ class StompHeartbeater:
         self.task: Optional[asyncio.Future[None]] = None
         self.is_started = False
 
-        self.received_heartbeat = None
+        self.received_heartbeat = datetime.now()
 
     async def start(self) -> None:
         if self.is_started:
@@ -47,5 +48,13 @@ class StompHeartbeater:
             await self.send()
             await asyncio.sleep(self.interval, loop=self.loop)
 
+    @property
+    def connected(self) -> bool:
+        elapsed = datetime.now() - self.received_heartbeat
+        return elapsed.total_seconds() < self.interval * 2
+
     async def send(self) -> None:
         self._transport.write(self.HEART_BEAT)
+
+    def receive(self) -> None:
+        self.received_heartbeat = datetime.now()

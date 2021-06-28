@@ -393,7 +393,7 @@ class StompReader(asyncio.Protocol):
         headers = {} if headers is None else headers
         buf = self._protocol.build_frame(command, headers, body)
 
-        if not self._transport:
+        if not self._transport or not self.heartbeater.connected:
             raise StompDisconnectedError()
 
         if self._stats:
@@ -492,6 +492,7 @@ class StompReader(asyncio.Protocol):
 
         self._protocol.feed_data(data)
 
+        self.heartbeater.receive()
         for frame in self._protocol.pop_frames():
             if frame.command != "HEARTBEAT":
                 self._loop.create_task(
