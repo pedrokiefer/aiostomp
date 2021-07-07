@@ -10,7 +10,7 @@ class TestStompHeartbeater(AsyncTestCase):
     async def setUpAsync(self):
         self.transport = Mock()
         self.heartbeater = StompHeartbeater(
-            self.transport, loop=asyncio.get_event_loop(), interval=100
+            self.transport, loop=asyncio.get_event_loop(), interval_cx=100, interval_cy=100
         )
 
     @patch("aiostomp.heartbeat.StompHeartbeater.stop")
@@ -75,9 +75,8 @@ class TestStompHeartbeater(AsyncTestCase):
         await asyncio.sleep(0.100)
         self.assertEqual(len(self.transport.write.call_args_list), 2)
 
-    
+    @unittest_run_loop
     async def test_can_monitor_connection_heartbeater(self):
-
         await self.heartbeater.start()
 
         await asyncio.sleep(0.001)
