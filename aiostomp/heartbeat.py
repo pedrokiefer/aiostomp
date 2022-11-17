@@ -45,7 +45,7 @@ class StompHeartbeater:
     async def run(self) -> None:
         while True:
             await self.send()
-            await asyncio.sleep(self.interval, loop=self.loop)
+            await asyncio.sleep(self.interval)
 
     async def send(self) -> None:
         self._transport.write(self.HEART_BEAT)
