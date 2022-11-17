@@ -111,7 +111,7 @@ class AioStomp:
 
         self._host = host
         self._port = port
-        self._loop = loop or asyncio.get_event_loop()
+        self._loop = loop or asyncio.get_running_loop()
 
         self._stats = None
 
