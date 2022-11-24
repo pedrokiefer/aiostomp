@@ -2,6 +2,7 @@ import asyncio
 
 from asynctest import Mock, patch
 
+import aiostomp.aiostomp
 from aiostomp.test_utils import AsyncTestCase, unittest_run_loop
 from aiostomp.heartbeat import StompHeartbeater
 
@@ -10,7 +11,7 @@ class TestStompHeartbeater(AsyncTestCase):
     async def setUpAsync(self):
         self.transport = Mock()
         self.heartbeater = StompHeartbeater(
-            self.transport, loop=asyncio.get_event_loop(), interval=100
+            self.transport, interval=100, logger=aiostomp.aiostomp.logger
         )
 
     @patch("aiostomp.heartbeat.StompHeartbeater.stop")

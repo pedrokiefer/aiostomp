@@ -26,10 +26,8 @@ setup(
     extras_require={
         'tests': [
             'mock',
-            'nose',
+            'pytest-cov',
             'coverage',
-            'yanc',
-            'nose_focus',
             'asynctest',
             'flake8',
         ]
