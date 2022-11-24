@@ -9,18 +9,9 @@ clean:
 	find . -name "*.pyc" -exec rm '{}' ';'
 
 unit test_unit test: clean flake8
-	@nosetests -v --with-cover --cover-package=aiostomp --with-yanc -s tests/
-	@$(MAKE) coverage
-
-focus:
-	@nosetests -vv --with-cover --cover-package=aiostomp \
-		--with-yanc --logging-level=WARNING --with-focus -i -s tests/
-
-coverage:
-	@coverage report -m --fail-under=80
+	@pytest -v --cov --cov-report=term --cov-report=html
 
 coverage_html:
-	@coverage html
 	@open htmlcov/index.html
 
 flake8:
