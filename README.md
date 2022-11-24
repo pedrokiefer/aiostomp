@@ -3,6 +3,7 @@
 [![PyPI version](https://badge.fury.io/py/aiostomp.svg)](https://badge.fury.io/py/aiostomp)
 
 # Aiostomp
+
 Simple asyncio stomp 1.1 client for python 3.6.
 
 Heavely inspired on [torstomp](https://github.com/wpjunior/torstomp).
@@ -14,7 +15,9 @@ with pip:
 ```bash
 pip install aiostomp
 ```
+
 ## Usage
+
 ```python
 import sys
 import logging
@@ -60,14 +63,17 @@ if __name__ == '__main__':
 ## Development
 
 With empty virtualenv for this project, run this command:
+
 ```bash
 make setup
 ```
 
 and run all tests =)
+
 ```bash
 make test
 ```
 
 ## Contributing
+
 Fork, patch, test, and send a pull request.
