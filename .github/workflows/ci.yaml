@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python-version: ["3.6", "3.7", "3.8", "3.9", "3.10", "3.11"]
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Upgrade pip version
+        run: |
+          python -m pip install -U pip
+
+      - name: Setup
+        run: |
+          make setup
+
+      - name: Test
+        run: |
+          make test
