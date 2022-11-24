@@ -1,6 +1,11 @@
 import asyncio
 
-from asynctest import Mock, patch
+import sys
+
+if sys.version_info < (3, 10):
+    from asynctest import Mock, patch
+else:
+    from unittest.mock import Mock, patch
 
 from aiostomp.test_utils import AsyncTestCase, unittest_run_loop
 from aiostomp.heartbeat import StompHeartbeater
@@ -10,7 +15,7 @@ class TestStompHeartbeater(AsyncTestCase):
     async def setUpAsync(self):
         self.transport = Mock()
         self.heartbeater = StompHeartbeater(
-            self.transport, loop=asyncio.get_event_loop(), interval=100
+            self.transport, interval=100
         )
 
     @patch("aiostomp.heartbeat.StompHeartbeater.stop")
@@ -24,7 +29,8 @@ class TestStompHeartbeater(AsyncTestCase):
         await asyncio.sleep(0.001)
         self.transport.write.assert_called_with(StompHeartbeater.HEART_BEAT)
 
-        await asyncio.sleep(0.100)
+        await asyncio.sleep(0.150)
+        print(self.transport.write.call_args_list)
         self.assertEqual(len(self.transport.write.call_args_list), 2)
 
     @unittest_run_loop

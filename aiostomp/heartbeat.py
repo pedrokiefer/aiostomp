@@ -11,12 +11,10 @@ class StompHeartbeater:
     def __init__(
         self,
         transport: asyncio.Transport,
-        loop: asyncio.AbstractEventLoop,
         interval: int = 1000,
     ):
         self._transport = transport
         self.interval = interval / 1000.0
-        self.loop = loop
         self.task: Optional[asyncio.Future[None]] = None
         self.is_started = False
 
@@ -27,7 +25,7 @@ class StompHeartbeater:
             await self.stop()
 
         self.is_started = True
-        self.task = asyncio.ensure_future(self.run(), loop=self.loop)
+        self.task = asyncio.ensure_future(self.run())
 
     async def stop(self) -> None:
         if self.is_started and self.task:
@@ -45,7 +43,7 @@ class StompHeartbeater:
     async def run(self) -> None:
         while True:
             await self.send()
-            await asyncio.sleep(self.interval, loop=self.loop)
+            await asyncio.sleep(self.interval)
 
     async def send(self) -> None:
         self._transport.write(self.HEART_BEAT)

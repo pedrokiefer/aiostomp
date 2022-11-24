@@ -451,7 +451,7 @@ class StompReader(asyncio.Protocol):
                 interval = max(self.heartbeat.get("cx", 0), sy)
                 logger.debug("Sending heartbeats every %sms", interval)
                 self.heartbeater = StompHeartbeater(
-                    self._transport, interval=interval, loop=self._loop
+                    self._transport, interval=interval
                 )
                 await self.heartbeater.start()
 

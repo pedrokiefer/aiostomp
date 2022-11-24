@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import asyncio
 import ssl
+import sys
 
 from aiostomp.test_utils import AsyncTestCase, unittest_run_loop
 
@@ -9,7 +10,11 @@ from aiostomp.subscription import Subscription
 from aiostomp.errors import StompError, StompDisconnectedError, ExceededRetryCount
 from aiostomp.frame import Frame
 
-from asynctest import CoroutineMock, Mock, patch
+if sys.version_info < (3, 10):
+    from asynctest import CoroutineMock, Mock, patch
+else:
+    from unittest.mock import AsyncMock, Mock, patch
+    CoroutineMock = AsyncMock
 
 
 class TestStompStats(AsyncTestCase):
