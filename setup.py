@@ -26,9 +26,10 @@ setup(
     extras_require={
         'tests': [
             'mock',
-            'pytest-cov',
             'coverage',
             'asynctest',
+            'pytest',
+            'pytest-cov',
             'flake8',
         ]
     }

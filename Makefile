@@ -16,7 +16,7 @@ focus:
 	@pytest -vv --cov=aiostomp -s tests/
 
 coverage:
-	@coverage report -m --fail-under=80
+	@pytest -v --cov --cov-report=term --cov-report=html
 
 coverage_html:
 	@coverage html
