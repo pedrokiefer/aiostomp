@@ -8,7 +8,7 @@ setup(
     name='aiostomp',
     version=__version__,
     description='Simple Stomp 1.1 client for asyncio applications',
-    long_description='',
+    long_description='Stomp Client for Asyncio applications with simple semantics and easy to use.',
     classifiers=[],
     keywords='stomp',
     author='Pedro Kiefer',
