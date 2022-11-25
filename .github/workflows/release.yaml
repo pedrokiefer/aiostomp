@@ -3,7 +3,7 @@ name: Publish aiostomp to PyPI / GitHub
 on:
   push:
     tags:
-      - "v*"
+      - "v*.*.*"
 
 jobs:
   build-n-publish:
