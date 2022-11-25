@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=61.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aiostomp"
+authors = [
+    {name = "Pedro Kiefer", email = "pedro@kiefer.com.br"}
+]
+description = "Stompt Client for Asyncio applications"
+requires-python = ">=3.6"
+license = {text = "MIT"}
+readme = "README.md"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+keywords = ["stomp", "asyncio", "client"]
+dependencies = [
+    "six",
+    "async-timeout",
+]
+dynamic = ["version"]
+
+[project.urls]
+"Source Code" = "https://github.com/pedrokiefer/aiostomp"
+
+[project.optional-dependencies]
+tests = [
+    "mock",
+    "coverage",
+    "asynctest",
+    "pytest",
+    "pytest-cov",
+    "flake8",
+    "bumpversion",
+]
+
+[tool.setuptools]
+include-package-data = true
+license-files = ["LICENSE.txt"]
+
+[tool.setuptools.packages.find]
+exclude = ["tests", "tests.*"]
+namespaces = false
+
+[tool.setuptools.dynamic]
+version = {attr = "aiostomp.__version__"}
