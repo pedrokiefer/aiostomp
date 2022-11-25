@@ -1,4 +1,4 @@
-.PHONY: setup clean test test_unit flake8 autopep8 upload
+.PHONY: setup clean test test_unit flake8 autopep8 upload bump major minor patch
 BUMP := 'patch'
 
 setup:
@@ -29,7 +29,7 @@ major:
 	@$(eval BUMP := 'major')
 
 bump:
-	@bumpversion ${BUMP}
+	@bumpversion --verbose ${BUMP}
 
 upload:
 	python ./setup.py sdist upload -r pypi
